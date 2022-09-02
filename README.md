@@ -1,7 +1,6 @@
 # Marigold
 
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/marigold)](https://pypi.org/project/marigold/)
-[![Tests](https://github.com/tilmann-bartsch/marigold/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/tilmann-bartsch/marigold/actions/workflows/test.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Commits](https://img.shields.io/github/last-commit/tilmann-bartsch/marigold/master)](https://github.com/tilmann-bartsch/marigold/commits/master)
 
