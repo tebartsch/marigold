@@ -16,7 +16,7 @@ Pull docker image from [hub.docker.com](hub.docker.com) and run it for the files
 the folder `content`.
 ```shell
 docker pull tbartsch/marigold
-docker run \
+docker run -it \
     -p 8080:8080 \
     --mount type=bind,source="$(pwd)"/content,target=/app/content \
     tbartsch/marigold:latest
