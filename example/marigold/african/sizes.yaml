@@ -1,0 +1,7 @@
+files:
+  - filename: "1.jpg"
+    width: "1920px"
+    height: "1280px"
+  - filename: "2.jpg"
+    width: "1920px"
+    height: "1249px"
