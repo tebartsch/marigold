@@ -1,4 +1,4 @@
-name: Deployment
+name: Publish to hub.docker.com
 
 on:
   release:
@@ -25,4 +25,4 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: user/app:latest
+          tags: tbartsch/marigold:latest
