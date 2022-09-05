@@ -75,18 +75,16 @@
          	 }
          }
 
+         function get_children_url(path) {
+            return "children/" + path
+         }
+
          function get_children(path) {
          	 let children_path = "children/" + path;
-         	 var response = '';
-         	 $.ajax({
+         	 return $.ajax({
          		 type: "GET",
          		 url: children_path,
-         		 async: false,
-         		 success: function (resp) {
-         			 response = resp;
-         		 }
          	 });
-         	 return response.children
          }
 
          (function ($) {
@@ -108,44 +106,32 @@
                },
                'plugins' : ['conditionalselect'],
          	   'core' : {
-                  'data' : get_children("."),
+                  'data': {
+                     'url': function (node) {
+                        if (node.id === "#")
+                           return get_children_url(".");
+                        else
+                           return get_children_url(node.data.path);
+                     },
+                     'method': 'GET',
+                     'type': "json",
+                  },
                   'state' : "leaf",
-               'themes' : {
-                  "name": "default",
-                  "dots": false,
-                  "arrows": false,
-                  "ellipsis": true,
-               },
-               'check_callback': true,
-            }})
+                  'themes' : {
+                     "name": "default",
+                     "dots": false,
+                     "arrows": false,
+                     "ellipsis": true,
+                  },
+                  'check_callback': true,
+               }
+            })
             .on('activate_node.jstree', function (e, data) {
-               $('#directory').jstree(true).delete_node(data.node.children)
-               let is_directory = data.node.data.is_directory
-               let is_open = data.node.state.opened
-               if (is_open)
-                  $('#directory').jstree(true).create_node(data.node, {"text": false, icon: false},
-                                                           "last", false, true);
-               if (is_directory && !is_open) {
-                  const new_children = get_children(data.node.data.path)
-                  new_children.forEach((child) => {
-                     $('#directory').jstree(true).create_node(data.node, child, "last", false, true);
-                  });
-               }
-               $('#directory').jstree("toggle_node", data.node);
+               $('#directory').jstree(true).toggle_node(data.node)
          	})
-            .on('open_node.jstree', function (e, data) {
-               $('#directory').jstree(true).delete_node(data.node.children)
-               let is_directory = data.node.data.is_directory
-               let is_open = data.node.state.opened
-               if (!is_open)
-                  $('#directory').jstree(true).create_node(data.node, {}, "last", false, true);
-               if (is_directory && is_open) {
-                  const new_children = get_children(data.node.data.path)
-                  new_children.forEach((child) => {
-                     $('#directory').jstree(true).create_node(data.node, child, "last", false, true);
-                  });
-               }
-         	})
+            .on('close_node.jstree', function (e, data) {
+               data.node.state.loaded = false;
+            })
             .on("hover_node.jstree", function (e, data) {
                if (!data.node.data.is_directory)
                   show_asset(data.node.data.path);

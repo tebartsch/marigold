@@ -23,17 +23,15 @@ icon_dict = {
 
 
 def has_children(path):
-    directory = app.config.get('directory')
-    dir_path = os.path.join(directory, path)
-    if not os.path.isdir(dir_path):
-        return {"has_children": False}
+    if not os.path.isdir(path):
+        return False
     else:
         try:
-            lst = sorted(os.listdir(dir_path))
+            lst = sorted(os.listdir(path))
         except OSError:
-            return {"has_children": None}
+            return False
         else:
-            return {"has_children": len(lst) > 0}
+            return len(lst) > 0
 
 
 @app.route('/children/', defaults={'path': '.'})
@@ -53,13 +51,9 @@ def children(path):
             elem_path = os.path.join(path, name)
             elem_path_norm = urllib.parse.quote_plus(elem_path, safe="/")
             if os.path.isdir(dir_elem_path):
-                if has_children(dir_elem_path):
-                    children = [{}]
-                else:
-                    children = []
                 sub_directories.append({"text": name,
                                         "icon": icon_dict["folder"],
-                                        "children": children,
+                                        "children": has_children(dir_elem_path),
                                         "data": {
                                             "is_directory": True,
                                             "path": elem_path_norm,
@@ -76,7 +70,8 @@ def children(path):
                                   "is_directory": False,
                                   "path": elem_path_norm,
                               }})
-    return {"children": sub_directories + files}
+
+    return sub_directories + files
 
 
 @app.route('/')
