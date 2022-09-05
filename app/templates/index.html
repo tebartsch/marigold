@@ -128,12 +128,12 @@
          }
 
          function resume_content_update(nodes) {
-            if (content_update_interval === null) {
-               content_update_interval = setInterval(function () {
-                  update_selected_content(nodes)
-               }, poll_delay);
-               content_update_paused = false;
-            }
+            if (content_update_interval !== null)
+               clearInterval(content_update_interval);
+            content_update_interval = setInterval(function () {
+               update_selected_content(nodes)
+            }, poll_delay);
+            content_update_paused = false;
          }
 
          function get_children_url(path) {
