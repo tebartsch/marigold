@@ -25,71 +25,93 @@
          <div id="content" class="content"></div>
       </div>
       <script>
+         let curr_content = {
+            path: null,
+            mod_time: null,
+         }
+
          function show_asset(path) {
          	 if (path) {
+                 let update_time_path = "update-time/" + path
          		 let asset_path = "blob/" + path
          		 let asset_path_decoded = decodeURIComponent(asset_path);
 
-         		 let content = $("#content");
+                 jQuery.get(update_time_path, function(update_time_str) {
+                    let update_time = parseFloat(update_time_str)
 
-         		 let highlight_js_dict = {
-         			 txt: 'language-plaintext',
-         			 yml: 'language-yaml',
-         			 yaml: 'language-yaml',
-         		 }
+                    let content_type_changed = true
+                    let content_changed = true
+                    if (curr_content.path !== null) {
+                       if (curr_content.path === asset_path) {
+                          content_type_changed = false
+                          if (curr_content.mod_time >= update_time) {
+                             content_changed = false
+                          }
+                       }
+                    }
+                    curr_content.path = asset_path
+                    curr_content.mod_time = update_time
 
-         		 // Update content
-         		 let file_type = path.split('.').pop()
-         		 if (file_type) {
-         			 if (file_type === "mp4") {
-         				 content.html(
-         					 `<p><a class='content-link' href=${asset_path} id='content-link'>` +
-         					 `    ${asset_path_decoded}` +
-         					 `</a></p>` +
-         					 `<video class='video' controls>` +
-         					 `    <source src=${asset_path} type='video/mp4'>` +
-         					 `</video>`
-         				 )
-         			 }
-         			 else if (highlight_js_dict.hasOwnProperty(file_type)) {
-                         let update = false;
-                         if (content[0].children.length === 1) {
-                            if (content[0].children[0].id !== 'text-content')
-                               update = true;
-                         } else
-                               update = true;
-                         if (update)
-                            content.html(
-                              `<div id=text-content>` +
-                              `    <a class='content-link' href=${asset_path} id='content-link'>source</a>` +
-                              `    <pre id='preformatted' class='preformatted'>` +
-                              `        <code class=${highlight_js_dict[file_type]} id="code-content"></code>` +
-                              `    </pre>` +
-                              `</div>`
-                            );
-         				 jQuery.get(asset_path, function(data) {
-         					 $("#code-content").html(`${data}`);
-         					 hljs.highlightAll();
-         				 	 $("#preformatted").scrollTop(1e9);
-         				 });
-         			 }
-         			 else {
-         				 content.html(
-         					 `<a href=${asset_path}>` +
-         					 `	 <img class='image' src=${asset_path} alt=${asset_path_decoded}>` +
-         					 `</a>`
-         				 )
-         			 }
-         		 }
+                    let content = $("#content");
 
+                    let highlight_js_dict = {
+                       txt: 'language-plaintext',
+                       yml: 'language-yaml',
+                       yaml: 'language-yaml',
+                    }
+
+                    // Update content if it has changed
+                    if (content_type_changed || content_changed) {
+                       let file_type = path.split('.').pop()
+                       if (file_type) {
+                          if (file_type === "mp4") {
+                             content.html(
+                               `<p><a class='content-link' href=${asset_path} id='content-link'>` +
+                               `    ${asset_path_decoded}` +
+                               `</a></p>` +
+                               `<video class='inherit-height' controls>` +
+                               `    <source src=${asset_path} type='video/mp4'>` +
+                               `</video>`
+                             )
+                          } else if (highlight_js_dict.hasOwnProperty(file_type)) {
+                             if (content_type_changed)
+                                content.html(
+                                  `<div id=text-content class="inherit-height text-content">` +
+                                  `    <a href=${asset_path} id='content-link'>source</a>` +
+                                  `    <pre id='preformatted' class='preformatted'></pre>` +
+                                  `</div>`
+                                );
+                             if (content_changed) {
+                                jQuery.get(asset_path, function (data) {
+                                   $("#preformatted").html(
+                                     `<code class="${highlight_js_dict[file_type]}">` +
+                                     `  ${data}` +
+                                     `</code>`
+                                   );
+                                   hljs.highlightAll();
+                                   $("#preformatted").scrollTop(1e9);
+                                });
+                             }
+                          } else {
+                             content.html(
+                               `<a href=${asset_path}>` +
+                               `	 <img class='image' src=${asset_path} alt=${asset_path_decoded}>` +
+                               `</a>`
+                             )
+                          }
+                       }
+                    }
+                 })
          	 }
          }
+
+         let poll_delay = 2500
 
          // True if any leaf node is hovered
          let content_update_paused = false
          let content_update_interval = setInterval(function () {
            update_selected_content([])
-         }, 1000);
+         }, poll_delay);
 
          function update_selected_content(nodes) {
            if (nodes.length) {
@@ -109,7 +131,7 @@
             if (content_update_interval === null) {
                content_update_interval = setInterval(function () {
                   update_selected_content(nodes)
-               }, 1000);
+               }, poll_delay);
                content_update_paused = false;
             }
          }

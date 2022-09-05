@@ -83,6 +83,13 @@ def dirtree():
     )
 
 
+@app.route('/update-time/<path:path>')
+def update_time(path):
+    directory = app.config.get('directory')
+    path = os.path.join(directory, path)
+    return str(os.path.getmtime(path))
+
+
 @app.route('/blob/<path:path>')
 def send_outputs(path):
     directory = app.config.get('directory')

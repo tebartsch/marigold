@@ -28,20 +28,17 @@
   transform: translate(-50%, -50%);
 }
 
+.text-content {
+  margin: 10px 10px 10px 10px;
+}
+
 .preformatted {
-  margin: 10px 10px 10px 10px;
-  max-width: 100%;
-  max-height: 90%;
   overflow: scroll;
+  max-height: 93%;
 }
 
-
-.video {
+.inherit-height {
   height: inherit;
-}
-
-.content-link {
-  margin: 10px 10px 10px 10px;
 }
 
 /* Style the sidebar - fixed full height */
