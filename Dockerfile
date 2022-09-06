@@ -1,5 +1,7 @@
 FROM python:3.9-alpine
 
+RUN apk add libc-dev gcc g++
+
 COPY ./README.md /app/README.md
 COPY ./setup.py /app/setup.py
 WORKDIR /app

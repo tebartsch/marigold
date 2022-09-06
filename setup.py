@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 from codecs import open
 
 with open(
-    path.join(path.abspath(path.dirname(__file__)), "README.md"), encoding="utf-8"
+        path.join(path.abspath(path.dirname(__file__)), "README.md"), encoding="utf-8"
 ) as f:
     long_description = f.read()
 
@@ -27,6 +27,9 @@ setup(
     packages=find_packages(include=["marigold"]),
     python_requires="~= 3.7",
     install_requires=[
-        "flask~=2.2.2"
+        "flask~=2.2.2",
+        "flask-socketio~=5.3.0",
+        "pygtail~=0.12.0",
+        "gevent-websocket",
     ],
 )

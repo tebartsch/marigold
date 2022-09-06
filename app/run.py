@@ -3,11 +3,35 @@ import os
 import sys
 import argparse
 import urllib.parse
+import time
 
 from flask import Flask, render_template, send_from_directory
+from flask_socketio import SocketIO
+from werkzeug.security import safe_join
+from gevent import monkey
+monkey.patch_all()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--port', type=int, default=8080,
+                    metavar='8080',
+                    help='Port of the server.')
+parser.add_argument('--directory', type=str, default=".",
+                    metavar='path/to/folder/',
+                    help='directory of the files to show')
+parser.add_argument('--webpage-title', type=str, default="Marigold",
+                    metavar='example-title',
+                    help='the title of the webpage')
+parser.add_argument('--sidebar-headline', type=str, default="Marigold",
+                    metavar='example-headline',
+                    help='the headline shown above the contents sidebar')
+args = parser.parse_args()
 
 app = Flask(__name__)
+socketio = SocketIO(app, async_mode="gevent")
 
+# Store command line options in app config
+for k, v in vars(args).items():
+    app.config[k] = v
 
 icon_dict = {
     "folder": "static/themes/default/folder.svg",
@@ -83,18 +107,91 @@ def dirtree():
     )
 
 
+@app.route('/update-time/<path:path>')
+def update_time(path):
+    directory = app.config.get('directory')
+    path = os.path.join(directory, path)
+    return str(os.path.getmtime(path))
+
+
 @app.route('/blob/<path:path>')
-def send_outputs(path):
+def send_file(path):
     directory = app.config.get('directory')
     base_path = os.path.join(os.path.realpath(os.path.curdir), directory)
     return send_from_directory(base_path, path)
 
 
-def main(arguments):
-    # Store command line options in app config
-    for k, v in vars(args).items():
-        app.config[k] = v
+class SendFileContents:
+    # {
+    #   "path/to/file": ["id1", "id2"],
+    #   ---
+    # }
+    sending = {}
 
+    def __init__(self, socketio):
+        self.socketio = socketio
+
+    def do_work(self, path, identifier):
+        self.sending[path] = [identifier]
+        while True:
+            max_ws_message_bytes = 524288
+            logging.info(f"WEBSOCKET: received data request for ath '{path}'.")
+            directory = app.config.get('directory')
+            base_path = os.path.join(os.path.realpath(os.path.curdir), directory)
+            full_path = safe_join(base_path, os.fspath(path))
+
+            def follow(_file):
+                curr_size, data = 0, ""
+                while True:
+                    lines = _file.readlines()
+                    if not lines:
+                        yield data
+                        time.sleep(0.1)
+                    for line in lines:
+                        curr_size += sys.getsizeof(line)
+                        data += line
+                        if curr_size >= max_ws_message_bytes:
+                            yield data
+                            curr_size, data = 0, ""
+                    yield data
+                    curr_size, data = 0, ""
+
+            def _emit(_data):
+                socketio.emit("data", {
+                    "path": path,
+                    "bytes": bytes(_data, 'utf-8'),
+                }, namespace="/")
+
+            for data in follow(open(full_path, 'r')):
+                if identifier not in self.sending[path]:
+                    if not self.sending[path]:
+                        del self.sending[path]
+                    return
+                _emit(data)
+
+
+send_file_contents = None
+
+
+@socketio.on('connect')
+def connect():
+    global send_file_contents
+    send_file_contents = SendFileContents(socketio)
+
+
+@socketio.on('data request')
+def send_file_via_websockets(message):
+    print(SendFileContents.sending)
+    for k in SendFileContents.sending:
+        SendFileContents.sending[k] = []
+    path = message['path']
+    if send_file_contents is not None:
+        milliseconds = int(round(time.time() * 1000))
+        socketio.start_background_task(target=send_file_contents.do_work,
+                                       path=path, identifier=str(milliseconds))
+
+
+def main():
     # Configure logging
     console = logging.StreamHandler(sys.stdout)
     logging.basicConfig(
@@ -104,22 +201,9 @@ def main(arguments):
     )
 
     port = app.config["port"]
-    app.run(host="0.0.0.0", port=port)
+
+    socketio.run(app, host="0.0.0.0", port=port)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--port', type=int, default=8080,
-                        metavar='8080',
-                        help='Port of ')
-    parser.add_argument('--directory', type=str, default=".",
-                        metavar='path/to/folder/',
-                        help='directory of the files to show')
-    parser.add_argument('--webpage-title', type=str, default="Marigold",
-                        metavar='example-title',
-                        help='the title of the webpage')
-    parser.add_argument('--sidebar-headline', type=str, default="Marigold",
-                        metavar='example-headline',
-                        help='the headline shown above the contents sidebar')
-    args = parser.parse_args()
-    main(args)
+    main()

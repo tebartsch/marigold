@@ -1,151 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
-   <head>
-      <meta charset="UTF-8">
-      <title>{{ webpage_title }}</title>
-      <style>
-         html { margin:0; padding:0; font-size:62.5%; }
-         body { max-width:800px; min-width:300px; margin:0 auto; padding:20px 10px; font-size:14px; font-size:1.4em; }
-      </style>
-   </head>
-   <body>
-      <link rel="stylesheet" href="../static/marigold.css" />
-      <!-- Directory Tree (vakta-js)-->
-      <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
-      <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/themes/default/style.min.css" />
-      <script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/jstree.min.js"></script>
-      <!-- Syntax Highlighting (highlight-js)-->
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css">
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
-      <div class="container">
-         <div class="sidebar">
-            <h1>{{ sidebar_headline }}</h1>
-            <div id="directory" class="demo"></div>
-         </div>
-         <div id="content" class="content"></div>
-      </div>
-      <script>
-         function show_asset(path) {
-         	 if (path) {
-         		 let asset_path = "blob/" + path
-         		 let asset_path_decoded = decodeURIComponent(asset_path);
+<head>
+	<meta charset="UTF-8">
+	<title>{{ webpage_title }}</title>
+	<style>
+        html {
+            margin: 0;
+            padding: 0;
+            font-size: 62.5%;
+        }
 
-         		 let content = $("#content");
+        body {
+            max-width: 800px;
+            min-width: 300px;
+            margin: 0 auto;
+            padding: 20px 10px;
+            font-size: 14px;
+            font-size: 1.4em;
+        }
+	</style>
+</head>
+<body>
+<link rel="stylesheet" href="../static/marigold.css"/>
+<!-- Socket.IO -->
+<!-- Directory Tree (vakta-js)-->
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/themes/default/style.min.css"/>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/jstree.min.js"></script>
+<!-- Syntax Highlighting (highlight-js)-->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
+<div class="container">
+	<div class="sidebar">
+		<h1>{{ sidebar_headline }}</h1>
+		<div id="directory" class="demo"></div>
+	</div>
+	<div id="content" class="content"></div>
+</div>
+<script type="module">
+    import {io} from "https://cdn.socket.io/4.3.2/socket.io.esm.min.js";
 
-         		 let highlight_js_dict = {
-         			 txt: 'language-plaintext',
-         			 yml: 'language-yaml',
-         			 yaml: 'language-yaml',
-         		 }
+    const text_decoder = new TextDecoder();
+    const socket = io('ws://' + location.host);
 
-         		 // Update content
-         		 let file_type = path.split('.').pop()
-         		 if (file_type) {
-         			 if (file_type === "mp4") {
-         				 content.html(
-         					 `<p><a class='content-link' href=${asset_path} id='content-link'>` +
-         					 `    ${asset_path_decoded}` +
-         					 `</a></p>` +
-         					 `<video class='video' controls>` +
-         					 `    <source src=${asset_path} type='video/mp4'>` +
-         					 `</video>`
-         				 )
-         			 }
-         			 else if (highlight_js_dict.hasOwnProperty(file_type)) {
-         				 jQuery.get(asset_path, function(data) {
-         					 content.html(
-         						 `<a class='content-link' href=${asset_path} id='content-link'>source</a>` +
-         						 `<pre id='preformatted' class='preformatted'>` +
-         						 `    <code class=${highlight_js_dict[file_type]}>${data}</code>` +
-         						 `</pre>`
-         					 );
-         					 hljs.highlightAll();
-         				 	 $("#preformatted").scrollTop(1e9);
-         				 });
-         			 }
-         			 else {
-         				 content.html(
-         					 `<a href=${asset_path}>` +
-         					 `	 <img class='image' src=${asset_path} alt=${asset_path_decoded}>` +
-         					 `</a>`
-         				 )
-         			 }
-         		 }
+    let curr_content = null
 
-         	 }
-         }
+    function show_asset(path) {
+        if (path) {
+            let content_changed = (curr_content === null) || (curr_content !== path)
+            if (content_changed) {
+                socket.off("data");
 
-         function get_children_url(path) {
-            return "children/" + path
-         }
+                curr_content = path;
+                let asset_path = "blob/" + path;
+                let asset_path_decoded = decodeURIComponent(asset_path);
 
-         function get_children(path) {
-         	 let children_path = "children/" + path;
-         	 return $.ajax({
-         		 type: "GET",
-         		 url: children_path,
-         	 });
-         }
+                let content = $("#content");
 
-         (function ($) {
-            $.jstree.defaults.conditionalselect = function () { return true; };
+                let highlight_js_dict = {
+                    txt: 'language-plaintext',
+                    yml: 'language-yaml',
+                    yaml: 'language-yaml',
+                };
 
-            $.jstree.plugins.conditionalselect = function (options, parent) {
-               this.select_node = function (obj, supress_event, prevent_open) {
-                  if(this.settings.conditionalselect.call(this, this.get_node(obj))) {
+                let file_type = path.split('.').pop();
+                if (file_type) {
+                    if (file_type === "mp4") {
+                        content.html(
+                            `<p><a class='content-link' href=${asset_path} id='content-link'>` +
+                            `    ${asset_path_decoded}` +
+                            `</a></p>` +
+                            `<video class='inherit-height' controls>` +
+                            `    <source src=${asset_path} type='video/mp4'>` +
+                            `</video>`
+                        )
+                    } else if (highlight_js_dict.hasOwnProperty(file_type)) {
+                        content.html(
+                            `<div id=text-content class="inherit-height text-content">` +
+                            `    <a href=${asset_path} id='content-link'>source</a>` +
+                            `    <pre id="preformatted" class='preformatted'>` +
+                            `      <code id="raw-text" class="${highlight_js_dict[file_type]}"></code>` +
+                            `    </pre>` +
+                            `</div>`
+                        );
+                        socket.on('data', (msg) => {
+                            if (msg.path === path) {
+                                $("#raw-text").append(text_decoder.decode(msg.bytes));
+                                $("#preformatted").scrollTop(1e9);
+                                hljs.highlightAll();
+                            }
+                        })
+                        socket.emit("data request", {
+                            path: path
+                        })
+                    } else {
+                        content.html(
+                            `<a href=${asset_path}>` +
+                            `	 <img class='image' src=${asset_path} alt=${asset_path_decoded}>` +
+                            `</a>`
+                        )
+                    }
+                }
+            }
+
+        }
+    }
+
+    function get_children_url(path) {
+        return "children/" + path
+    }
+
+    (function ($) {
+        $.jstree.defaults.conditionalselect = function () {
+            return true;
+        };
+
+        $.jstree.plugins.conditionalselect = function (options, parent) {
+            this.select_node = function (obj, supress_event, prevent_open) {
+                if (this.settings.conditionalselect.call(this, this.get_node(obj))) {
                     parent.select_node.call(this, obj, supress_event, prevent_open);
-                  }
-               };
+                }
             };
-         })(jQuery);
+        };
+    })(jQuery);
 
-         $('#directory')
-         	.jstree({
-               'conditionalselect' : function (node) {
-                  return !node.data.is_directory;
-               },
-               'plugins' : ['conditionalselect'],
-         	   'core' : {
-                  'data': {
-                     'url': function (node) {
+    $('#directory')
+        .jstree({
+            'conditionalselect': function (node) {
+                return !node.data.is_directory;
+            },
+            'plugins': ['conditionalselect'],
+            'core': {
+                'data': {
+                    'url': function (node) {
                         if (node.id === "#")
-                           return get_children_url(".");
+                            return get_children_url(".");
                         else
-                           return get_children_url(node.data.path);
-                     },
-                     'method': 'GET',
-                     'type': "json",
-                  },
-                  'state' : "leaf",
-                  'themes' : {
-                     "name": "default",
-                     "dots": false,
-                     "arrows": false,
-                     "ellipsis": true,
-                  },
-                  'check_callback': true,
-               }
-            })
-            .on('activate_node.jstree', function (e, data) {
-               $('#directory').jstree(true).toggle_node(data.node)
-         	})
-            .on('close_node.jstree', function (e, data) {
-               data.node.state.loaded = false;
-            })
-            .on("hover_node.jstree", function (e, data) {
-               if (!data.node.data.is_directory)
-                  show_asset(data.node.data.path);
-         	})
-         	.on("dehover_node.jstree", function (e, data) {
-         		let instance = $('#directory').jstree(true)
-         		let selected = instance.get_selected(true)
-         		if (selected.length) {
-         			let path = selected[0].data.path;
-         		 	if (!selected[0].data.is_directory)
-         				show_asset(path);
-         		}
-         	});
+                            return get_children_url(node.data.path);
+                    },
+                    'method': 'GET',
+                    'type': "json",
+                },
+                'state': "leaf",
+                'themes': {
+                    "name": "default",
+                    "dots": false,
+                    "arrows": false,
+                    "ellipsis": true,
+                },
+                'check_callback': true,
+            }
+        })
+        .on('activate_node.jstree', function (e, data) {
+            $('#directory').jstree(true).toggle_node(data.node)
+        })
+        .on('close_node.jstree', function (e, data) {
+            data.node.state.loaded = false;
+        })
+        .on("hover_node.jstree", function (e, data) {
+            if (!data.node.data.is_directory) {
+                show_asset(data.node.data.path);
+            }
+        })
+        .on("dehover_node.jstree", function (e, data) {
+            let instance = $('#directory').jstree(true)
+            let selected = instance.get_selected(true)
+            if (selected.length) {
+                let path = selected[0].data.path;
+                if (!selected[0].data.is_directory)
+                    show_asset(path);
+            }
+        });
 
-      </script>
-   </body>
+</script>
+</body>
 </html>
