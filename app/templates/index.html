@@ -1,214 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
-   <head>
-      <meta charset="UTF-8">
-      <title>{{ webpage_title }}</title>
-      <style>
-         html { margin:0; padding:0; font-size:62.5%; }
-         body { max-width:800px; min-width:300px; margin:0 auto; padding:20px 10px; font-size:14px; font-size:1.4em; }
-      </style>
-   </head>
-   <body>
-      <link rel="stylesheet" href="../static/marigold.css" />
-      <!-- Directory Tree (vakta-js)-->
-      <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
-      <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/themes/default/style.min.css" />
-      <script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/jstree.min.js"></script>
-      <!-- Syntax Highlighting (highlight-js)-->
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css">
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
-      <div class="container">
-         <div class="sidebar">
-            <h1>{{ sidebar_headline }}</h1>
-            <div id="directory" class="demo"></div>
-         </div>
-         <div id="content" class="content"></div>
-      </div>
-      <script>
-         let curr_content = {
-            path: null,
-            mod_time: null,
-         }
+<head>
+	<meta charset="UTF-8">
+	<title>{{ webpage_title }}</title>
+	<style>
+        html {
+            margin: 0;
+            padding: 0;
+            font-size: 62.5%;
+        }
 
-         function show_asset(path) {
-         	 if (path) {
-                 let update_time_path = "update-time/" + path
-         		 let asset_path = "blob/" + path
-         		 let asset_path_decoded = decodeURIComponent(asset_path);
+        body {
+            max-width: 800px;
+            min-width: 300px;
+            margin: 0 auto;
+            padding: 20px 10px;
+            font-size: 14px;
+            font-size: 1.4em;
+        }
+	</style>
+</head>
+<body>
+<link rel="stylesheet" href="../static/marigold.css"/>
+<!-- Socket.IO -->
+<!-- Directory Tree (vakta-js)-->
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/themes/default/style.min.css"/>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/jstree.min.js"></script>
+<!-- Syntax Highlighting (highlight-js)-->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
+<div class="container">
+	<div class="sidebar">
+		<h1>{{ sidebar_headline }}</h1>
+		<div id="directory" class="demo"></div>
+	</div>
+	<div id="content" class="content"></div>
+</div>
+<script type="module">
+    import {io} from "https://cdn.socket.io/4.3.2/socket.io.esm.min.js";
 
-                 jQuery.get(update_time_path, function(update_time_str) {
-                    let update_time = parseFloat(update_time_str)
+    const text_decoder = new TextDecoder();
+    const socket = io('ws://' + location.host);
 
-                    let content_type_changed = true
-                    let content_changed = true
-                    if (curr_content.path !== null) {
-                       if (curr_content.path === asset_path) {
-                          content_type_changed = false
-                          if (curr_content.mod_time >= update_time) {
-                             content_changed = false
-                          }
-                       }
+    let curr_content = null
+
+    function show_asset(path) {
+        if (path) {
+            let content_changed = (curr_content === null) || (curr_content !== path)
+            if (content_changed) {
+                socket.off("data");
+
+                curr_content = path;
+                let asset_path = "blob/" + path;
+                let asset_path_decoded = decodeURIComponent(asset_path);
+
+                let content = $("#content");
+
+                let highlight_js_dict = {
+                    txt: 'language-plaintext',
+                    yml: 'language-yaml',
+                    yaml: 'language-yaml',
+                };
+
+                let file_type = path.split('.').pop();
+                if (file_type) {
+                    if (file_type === "mp4") {
+                        content.html(
+                            `<p><a class='content-link' href=${asset_path} id='content-link'>` +
+                            `    ${asset_path_decoded}` +
+                            `</a></p>` +
+                            `<video class='inherit-height' controls>` +
+                            `    <source src=${asset_path} type='video/mp4'>` +
+                            `</video>`
+                        )
+                    } else if (highlight_js_dict.hasOwnProperty(file_type)) {
+                        content.html(
+                            `<div id=text-content class="inherit-height text-content">` +
+                            `    <a href=${asset_path} id='content-link'>source</a>` +
+                            `    <pre id="preformatted" class='preformatted'>` +
+                            `      <code id="raw-text" class="${highlight_js_dict[file_type]}"></code>` +
+                            `    </pre>` +
+                            `</div>`
+                        );
+                        socket.on('data', (msg) => {
+                            if (msg.path === path) {
+                                $("#raw-text").append(text_decoder.decode(msg.bytes));
+                                $("#preformatted").scrollTop(1e9);
+                                hljs.highlightAll();
+                            }
+                        })
+                        socket.emit("data request", {
+                            path: path
+                        })
+                    } else {
+                        content.html(
+                            `<a href=${asset_path}>` +
+                            `	 <img class='image' src=${asset_path} alt=${asset_path_decoded}>` +
+                            `</a>`
+                        )
                     }
-                    curr_content.path = asset_path
-                    curr_content.mod_time = update_time
+                }
+            }
 
-                    let content = $("#content");
+        }
+    }
 
-                    let highlight_js_dict = {
-                       txt: 'language-plaintext',
-                       yml: 'language-yaml',
-                       yaml: 'language-yaml',
-                    }
+    function get_children_url(path) {
+        return "children/" + path
+    }
 
-                    // Update content if it has changed
-                    if (content_type_changed || content_changed) {
-                       let file_type = path.split('.').pop()
-                       if (file_type) {
-                          if (file_type === "mp4") {
-                             content.html(
-                               `<p><a class='content-link' href=${asset_path} id='content-link'>` +
-                               `    ${asset_path_decoded}` +
-                               `</a></p>` +
-                               `<video class='inherit-height' controls>` +
-                               `    <source src=${asset_path} type='video/mp4'>` +
-                               `</video>`
-                             )
-                          } else if (highlight_js_dict.hasOwnProperty(file_type)) {
-                             if (content_type_changed)
-                                content.html(
-                                  `<div id=text-content class="inherit-height text-content">` +
-                                  `    <a href=${asset_path} id='content-link'>source</a>` +
-                                  `    <pre id='preformatted' class='preformatted'></pre>` +
-                                  `</div>`
-                                );
-                             if (content_changed) {
-                                jQuery.get(asset_path, function (data) {
-                                   $("#preformatted").html(
-                                     `<code class="${highlight_js_dict[file_type]}">` +
-                                     `  ${data}` +
-                                     `</code>`
-                                   );
-                                   hljs.highlightAll();
-                                   $("#preformatted").scrollTop(1e9);
-                                });
-                             }
-                          } else {
-                             content.html(
-                               `<a href=${asset_path}>` +
-                               `	 <img class='image' src=${asset_path} alt=${asset_path_decoded}>` +
-                               `</a>`
-                             )
-                          }
-                       }
-                    }
-                 })
-         	 }
-         }
+    (function ($) {
+        $.jstree.defaults.conditionalselect = function () {
+            return true;
+        };
 
-         let poll_delay = 2500
-
-         // True if any leaf node is hovered
-         let content_update_paused = false
-         let content_update_interval = setInterval(function () {
-           update_selected_content([])
-         }, poll_delay);
-
-         function update_selected_content(nodes) {
-           if (nodes.length) {
-              let path = nodes[0].data.path;
-              if (!nodes[0].data.is_directory && !content_update_paused)
-                  show_asset(path);
-           }
-         }
-
-         function pause_content_update() {
-           clearInterval(content_update_interval);
-           content_update_interval = null
-           content_update_paused = true;
-         }
-
-         function resume_content_update(nodes) {
-            if (content_update_interval !== null)
-               clearInterval(content_update_interval);
-            content_update_interval = setInterval(function () {
-               update_selected_content(nodes)
-            }, poll_delay);
-            content_update_paused = false;
-         }
-
-         function get_children_url(path) {
-            return "children/" + path
-         }
-
-         (function ($) {
-            $.jstree.defaults.conditionalselect = function () { return true; };
-
-            $.jstree.plugins.conditionalselect = function (options, parent) {
-               this.select_node = function (obj, supress_event, prevent_open) {
-                  if(this.settings.conditionalselect.call(this, this.get_node(obj))) {
+        $.jstree.plugins.conditionalselect = function (options, parent) {
+            this.select_node = function (obj, supress_event, prevent_open) {
+                if (this.settings.conditionalselect.call(this, this.get_node(obj))) {
                     parent.select_node.call(this, obj, supress_event, prevent_open);
-                  }
-               };
+                }
             };
-         })(jQuery);
+        };
+    })(jQuery);
 
-         $('#directory')
-         	.jstree({
-               'conditionalselect' : function (node) {
-                  return !node.data.is_directory;
-               },
-               'plugins' : ['conditionalselect'],
-         	   'core' : {
-                  'data': {
-                     'url': function (node) {
+    $('#directory')
+        .jstree({
+            'conditionalselect': function (node) {
+                return !node.data.is_directory;
+            },
+            'plugins': ['conditionalselect'],
+            'core': {
+                'data': {
+                    'url': function (node) {
                         if (node.id === "#")
-                           return get_children_url(".");
+                            return get_children_url(".");
                         else
-                           return get_children_url(node.data.path);
-                     },
-                     'method': 'GET',
-                     'type': "json",
-                  },
-                  'state' : "leaf",
-                  'themes' : {
-                     "name": "default",
-                     "dots": false,
-                     "arrows": false,
-                     "ellipsis": true,
-                  },
-                  'check_callback': true,
-               }
-            })
-            .on('activate_node.jstree', function (e, data) {
-               $('#directory').jstree(true).toggle_node(data.node)
-         	})
-            .on('close_node.jstree', function (e, data) {
-               data.node.state.loaded = false;
-            })
-            .on("hover_node.jstree", function (e, data) {
-               pause_content_update()
-               if (!data.node.data.is_directory) {
-                  show_asset(data.node.data.path);
-                  resume_content_update([data.node]);
-               }
-               else {
-                 let nodes = $('#directory').jstree(true).get_selected(true);
-                 resume_content_update(nodes);
-               }
+                            return get_children_url(node.data.path);
+                    },
+                    'method': 'GET',
+                    'type': "json",
+                },
+                'state': "leaf",
+                'themes': {
+                    "name": "default",
+                    "dots": false,
+                    "arrows": false,
+                    "ellipsis": true,
+                },
+                'check_callback': true,
+            }
+        })
+        .on('activate_node.jstree', function (e, data) {
+            $('#directory').jstree(true).toggle_node(data.node)
+        })
+        .on('close_node.jstree', function (e, data) {
+            data.node.state.loaded = false;
+        })
+        .on("hover_node.jstree", function (e, data) {
+            if (!data.node.data.is_directory) {
+                show_asset(data.node.data.path);
+            }
+        })
+        .on("dehover_node.jstree", function (e, data) {
+            let instance = $('#directory').jstree(true)
+            let selected = instance.get_selected(true)
+            if (selected.length) {
+                let path = selected[0].data.path;
+                if (!selected[0].data.is_directory)
+                    show_asset(path);
+            }
+        });
 
-         	})
-         	.on("dehover_node.jstree", function (e, data) {
-         		let instance = $('#directory').jstree(true)
-         		let selected = instance.get_selected(true)
-         		if (selected.length) {
-         			let path = selected[0].data.path;
-         		 	if (!selected[0].data.is_directory)
-         				show_asset(path);
-         		}
-                let nodes = $('#directory').jstree(true).get_selected(true)
-                resume_content_update(nodes);
-         	});
-
-      </script>
-   </body>
+</script>
+</body>
 </html>

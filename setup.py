@@ -27,6 +27,8 @@ setup(
     packages=find_packages(include=["marigold"]),
     python_requires="~= 3.7",
     install_requires=[
-        "flask~=2.2.2"
+        "flask~=2.2.2",
+        "flask-socketio~=5.3.0",
+        "pygtail~=0.12.0",
     ],
 )

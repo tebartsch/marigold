@@ -5,9 +5,12 @@ import argparse
 import urllib.parse
 
 from flask import Flask, render_template, send_from_directory
+from flask_socketio import SocketIO, emit
+from werkzeug.security import safe_join
+from pygtail import Pygtail
 
 app = Flask(__name__)
-
+socketio = SocketIO(app)
 
 icon_dict = {
     "folder": "static/themes/default/folder.svg",
@@ -83,23 +86,47 @@ def dirtree():
     )
 
 
-@app.route('/update-time/<path:path>')
-def update_time(path):
-    directory = app.config.get('directory')
-    path = os.path.join(directory, path)
-    return str(os.path.getmtime(path))
-
-
 @app.route('/blob/<path:path>')
-def send_outputs(path):
+def send_file(path):
     directory = app.config.get('directory')
     base_path = os.path.join(os.path.realpath(os.path.curdir), directory)
     return send_from_directory(base_path, path)
 
 
+@socketio.on('data request')
+def send_file_via_websockets(message):
+    max_ws_message_bytes = 524288
+    path = message['path']
+    logging.info(f"WEBSOCKET: received data request for ath '{path}'.")
+    directory = app.config.get('directory')
+    base_path = os.path.join(os.path.realpath(os.path.curdir), directory)
+    full_path = safe_join(base_path, os.fspath(path))
+
+    file = Pygtail(full_path, save_on_end=False)
+
+    def _emit(_data):
+        emit("data", {
+            "path": path,
+            "bytes": bytes(_data, 'utf-8'),
+        })
+
+    while True:
+        lines = file.readlines()
+        curr_size, data = 0, ""
+        for line in lines:
+            if curr_size < max_ws_message_bytes:
+                curr_size += sys.getsizeof(line)
+                data += line
+            else:
+                _emit(data)
+                curr_size, data = 0, ""
+        if data:
+            _emit(data)
+
+
 def main(arguments):
     # Store command line options in app config
-    for k, v in vars(args).items():
+    for k, v in vars(arguments).items():
         app.config[k] = v
 
     # Configure logging
@@ -111,14 +138,18 @@ def main(arguments):
     )
 
     port = app.config["port"]
-    app.run(host="0.0.0.0", port=port)
+    debug = app.config["debug"]
+    socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=debug)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', type=bool, default=False,
+                        metavar='false',
+                        help='Whether to start the server in debug mode.')
     parser.add_argument('--port', type=int, default=8080,
                         metavar='8080',
-                        help='Port of ')
+                        help='Port of the server.')
     parser.add_argument('--directory', type=str, default=".",
                         metavar='path/to/folder/',
                         help='directory of the files to show')
