@@ -145,7 +145,7 @@ class SendFileContents:
         self.sending[path] = [identifier]
         while True:
             max_ws_message_bytes = 524288
-            logging.info(f"WEBSOCKET: received data request for ath '{path}'.")
+            logging.info(f"WEBSOCKET: received data request for path '{path}'.")
             directory = app.config.get('directory')
             base_path = os.path.join(os.path.realpath(os.path.curdir), directory)
             full_path = safe_join(base_path, path.lstrip('/'))
@@ -157,14 +157,15 @@ class SendFileContents:
                     if not lines:
                         yield data
                         time.sleep(0.1)
-                    for line in lines:
-                        curr_size += sys.getsizeof(line)
-                        data += line
-                        if curr_size >= max_ws_message_bytes:
-                            yield data
-                            curr_size, data = 0, ""
-                    yield data
-                    curr_size, data = 0, ""
+                    else:
+                        for line in lines:
+                            curr_size += sys.getsizeof(line)
+                            data += line
+                            if curr_size >= max_ws_message_bytes:
+                                yield data
+                                curr_size, data = 0, ""
+                        yield data
+                        curr_size, data = 0, ""
 
             def _emit(_data):
                 socketio.emit("data", {
@@ -177,7 +178,8 @@ class SendFileContents:
                     if not self.sending[path]:
                         del self.sending[path]
                     return
-                _emit(data)
+                if data:
+                    _emit(data)
 
 
 send_file_contents = None
