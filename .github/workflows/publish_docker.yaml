@@ -9,6 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
+        name: Create nightly tag
+        # `${GITHUB_REF_NAME/#v}` is the branch or tag name where prefix `v` is removed.
+        run: echo "IMAGE_TAG=${GITHUB_REF_NAME/#v}" >> $GITHUB_ENV
+      -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       -
@@ -25,4 +29,4 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: tbartsch/marigold:latest
+          tags: tbartsch/marigold:${{ env.IMAGE_TAG }}
