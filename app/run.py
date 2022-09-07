@@ -5,10 +5,11 @@ import argparse
 import urllib.parse
 import time
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, request
 from flask_socketio import SocketIO
 from werkzeug.security import safe_join
 from gevent import monkey
+
 monkey.patch_all()
 
 parser = argparse.ArgumentParser()
@@ -34,15 +35,15 @@ for k, v in vars(args).items():
     app.config[k] = v
 
 icon_dict = {
-    "folder": "static/themes/default/folder.svg",
-    "file": "static/themes/default/file.svg",
-    "txt": "static/themes/default/file.svg",
-    "yml": "static/themes/default/file.svg",
-    "yaml": "static/themes/default/file.svg",
-    "jpg": "static/themes/default/image.svg",
-    "jpeg": "static/themes/default/image.svg",
-    "png": "static/themes/default/image.svg",
-    "mp4": "static/themes/default/video.svg",
+    "folder": "/static/themes/default/folder.svg",
+    "file": "/static/themes/default/file.svg",
+    "txt": "/static/themes/default/file.svg",
+    "yml": "/static/themes/default/file.svg",
+    "yaml": "/static/themes/default/file.svg",
+    "jpg": "/static/themes/default/image.svg",
+    "jpeg": "/static/themes/default/image.svg",
+    "png": "/static/themes/default/image.svg",
+    "mp4": "/static/themes/default/video.svg",
 }
 
 
@@ -61,6 +62,8 @@ def has_children(path):
 @app.route('/children/', defaults={'path': '.'})
 @app.route('/children/<path:path>')
 def children(path):
+    show = request.args.get('show', default=".", type=str)
+
     directory = app.config.get('directory')
     sub_directories = []
     files = []
@@ -72,46 +75,54 @@ def children(path):
     else:
         for name in lst:
             dir_elem_path = os.path.join(dir_path, name)
-            elem_path = os.path.join(path, name)
+            elem_path = "/" + os.path.normpath(os.path.join(path, name))
             elem_path_norm = urllib.parse.quote_plus(elem_path, safe="/")
             if os.path.isdir(dir_elem_path):
-                sub_directories.append({"text": name,
-                                        "icon": icon_dict["folder"],
-                                        "children": has_children(dir_elem_path),
-                                        "data": {
-                                            "is_directory": True,
-                                            "path": elem_path_norm,
-                                        }})
+                if show is None:
+                    opened = False
+                else:
+                    opened = show.startswith(elem_path)
+                node = {
+                    "text": name,
+                    "icon": icon_dict["folder"],
+                    "children": has_children(dir_elem_path),
+                    "state": {"opened": opened},
+                    "data": {
+                        "is_directory": True,
+                        "path": elem_path_norm,
+                    }
+                }
+                sub_directories.append(node)
             else:
                 ext = os.path.splitext(elem_path)[1][1:]
                 if ext in icon_dict:
                     icon = icon_dict[ext]
                 else:
                     icon = icon_dict["file"]
-                files.append({"text": name,
-                              "icon": icon,
-                              "data": {
-                                  "is_directory": False,
-                                  "path": elem_path_norm,
-                              }})
+                show_content = elem_path == show
+                node = {
+                    "text": name,
+                    "icon": icon,
+                    "data": {
+                        "is_directory": False,
+                        "path": elem_path_norm,
+                        "show_content": show_content,
+                    }
+                }
+                print(node)
+                files.append(node)
 
     return sub_directories + files
 
 
-@app.route('/')
-def dirtree():
+@app.route('/', defaults={'path': '.'})
+@app.route('/<path:path>', strict_slashes=False)
+def dirtree(path):
     return render_template(
         'index.html',
         webpage_title=app.config['webpage_title'],
         sidebar_headline=app.config['sidebar_headline'],
     )
-
-
-@app.route('/update-time/<path:path>')
-def update_time(path):
-    directory = app.config.get('directory')
-    path = os.path.join(directory, path)
-    return str(os.path.getmtime(path))
 
 
 @app.route('/blob/<path:path>')
@@ -138,7 +149,7 @@ class SendFileContents:
             logging.info(f"WEBSOCKET: received data request for ath '{path}'.")
             directory = app.config.get('directory')
             base_path = os.path.join(os.path.realpath(os.path.curdir), directory)
-            full_path = safe_join(base_path, os.fspath(path))
+            full_path = safe_join(base_path, path.lstrip('/'))
 
             def follow(_file):
                 curr_size, data = 0, ""
@@ -181,7 +192,6 @@ def connect():
 
 @socketio.on('data request')
 def send_file_via_websockets(message):
-    print(SendFileContents.sending)
     for k in SendFileContents.sending:
         SendFileContents.sending[k] = []
     path = message['path']
