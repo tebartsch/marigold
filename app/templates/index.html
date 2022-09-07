@@ -139,7 +139,7 @@
                             return get_children_url(node.data.path);
                         }
                     },
-   					'data': { 'show': window.location.pathname },
+   					'data': { 'show': () => { return window.location.pathname; } },
                     'method': 'GET',
                     'type': "json",
                 },
