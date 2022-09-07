@@ -133,7 +133,6 @@
             'core': {
                 'data': {
                     'url': function (node) {
-                        console.log(node)
                         if (node.id === "#")
                             return get_children_url("");
                         else {
@@ -157,6 +156,9 @@
             $('#directory').jstree(true).toggle_node(data.node)
 			const path = data.node.data.path
 			window.history.replaceState(null, null, '//' + location.host + path);
+            if (!data.node.data.is_directory) {
+                show_asset(data.node.data.path);
+            }
         })
         .on('load_node.jstree', function (e, data) {
 			data.node.children.forEach(child_id => {

@@ -109,7 +109,6 @@ def children(path):
                         "show_content": show_content,
                     }
                 }
-                print(node)
                 files.append(node)
 
     return sub_directories + files
