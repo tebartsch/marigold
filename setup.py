@@ -1,5 +1,5 @@
 from os import path
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, find_namespace_packages
 from codecs import open
 
 with open(
@@ -24,12 +24,17 @@ setup(
         "Operating System :: OS Independent",
     ],
     keywords="simulation productivity hierarchy",
-    packages=find_packages(include=["marigold"]),
-    python_requires="~= 3.7",
+    packages=["marigold"],
+    include_package_data=True,
+    entry_points={
+        'console_scripts': [
+            'marigold = marigold:main',
+        ]
+    },
+    python_requires="~=3.9",
     install_requires=[
-        "flask~=2.2.2",
-        "flask-socketio~=5.3.0",
-        "pygtail~=0.12.0",
-        "gevent-websocket",
+        "flask~=2.1.2",
+        "flask-socketio~=5.1.1",
+        "gevent-websocket~=0.10.1",
     ],
 )
