@@ -18,24 +18,39 @@ the folder `content`.
 docker pull tbartsch/marigold
 docker run -it \
     -p 8080:8080 \
-    --mount type=bind,source="$(pwd)"/content,target=/app/content \
+    --mount type=bind,source="$(pwd)"/content,target=/marigold/content \
     tbartsch/marigold:latest
 ```
 
-Run development server in repository
+## Development
+
+Install requirements by using 
+  - Using python virtual environment:
+    ```shell
+    python -m venv venv
+    source venv/bin/activate
+    pip install .
+    ```
+  - Using nix:
+    ```shell
+    nix-shell nix
+    marigold --directory example/marigold
+    ```
+
+Run the development server
 ```shell
-python app/run.py --directory example/marigold
+python marigold/run.py --directory example/marigold
 ```
+
+## Docker container
 
 Build and run docker image from repository
 ```shell
-docker image build -t marigold:latest . || exit
-export PORT=8080
-export DIRECTORY=example/
+docker load < $(nix-build nix/docker.nix) || exit
 docker run -it \
     -p 8080:8080 \
-    --mount type=bind,source="$(pwd)"/example/marigold,target=/app/content \
-    marigold:latest
+    --mount type=bind,source="$(pwd)"/example/marigold,target=/content \
+    marigold:nightly
 ```
 
 ## Icons

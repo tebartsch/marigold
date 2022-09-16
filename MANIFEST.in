@@ -1,0 +1,2 @@
+recursive-include marigold/templates *
+recursive-include marigold/static *

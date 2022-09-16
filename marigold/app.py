@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import logging
 import os
 import sys
@@ -5,7 +7,7 @@ import argparse
 import urllib.parse
 import time
 
-from flask import Flask, render_template, send_from_directory, request
+from flask import Flask, render_template, send_from_directory, request, jsonify
 from flask_socketio import SocketIO
 from werkzeug.security import safe_join
 from gevent import monkey
@@ -111,7 +113,9 @@ def children(path):
                 }
                 files.append(node)
 
-    return sub_directories + files
+    print(jsonify(sub_directories + files))
+
+    return jsonify(sub_directories + files)
 
 
 @app.route('/', defaults={'path': '.'})
