@@ -5,6 +5,7 @@ import hljs from "highlight.js";
 import "highlight.js/styles/default.css"
 import io from 'socket.io-client';
 
+import './marigold.css';
 import arrowDown from './themes/default/arrow-down-s-line.svg'
 import arrowRight from './themes/default/arrow-right-s-line.svg'
 import folderIcon from './themes/default/folder.svg'
@@ -13,10 +14,8 @@ import fileTextIcon from './themes/default/file-text.svg'
 import imageIcon from './themes/default/image.svg'
 import videoIcon from './themes/default/video.svg'
 
-import './marigold.css';
 
 const axios = require('axios').default;
-
 
 const iconsPerExtension = {
     "txt": fileTextIcon,
@@ -228,13 +227,6 @@ class Content extends React.Component {
     this.state = {
       textContent: null
     };
-    this.textContentRef = React.createRef();
-  }
-
-  componentDidUpdate(prevProps, prevState, snapshot) {
-    if (this.textContentRef.current !== null) {
-      hljs.highlightElement(this.textContentRef.current)
-    }
   }
 
   render() {
@@ -264,10 +256,10 @@ class Content extends React.Component {
           )
         } else if (highlight_js_dict.hasOwnProperty(fileType)) {
           return (
-            <div id='text-content' className="inherit-height text-content">
+            <div className="text-content">
               <a href={asset_path} id='content-link'>source</a>
               <pre className='preformatted'>
-                <code className={highlight_js_dict[fileType]} ref={this.textContentRef}>
+                <code className={highlight_js_dict[fileType]} ref={this.props.innerTextContentRef}>
                   {this.props.textContent}
                 </code>
               </pre>
@@ -275,9 +267,11 @@ class Content extends React.Component {
           );
         } else {
           return (
-            <a href={asset_path}>
-              <img className='image' src={asset_path} alt={asset_path_decoded}/>
-            </a>
+            <div className="image-container">
+              <a href={asset_path}>
+                <img className='image' src={asset_path} alt={asset_path_decoded}/>
+              </a>
+            </div>
           );
         }
       }
@@ -294,17 +288,51 @@ class App extends React.Component {
       shownContentPath: null,
       textContent: "",
       textContentUuid: null,
+      sidebarIsResizing: false,
+      sidebarWidth: null
     }
 
-    this.socket = io()
     this.textDecoder = new TextDecoder();
 
     this.emitDataRequest = this.emitDataRequest.bind(this)
     this.clearContents = this.clearContents.bind(this)
+    this.startResizing = this.startResizing.bind(this)
+    this.stopResizing = this.stopResizing.bind(this)
+    this.resize = this.resize.bind(this)
+
+    this.sidebarRef = React.createRef();
+    this.textContentRef = React.createRef();
+
+    this.socket = io()
+  }
+
+  componentDidMount() {
+    const sidebarWidth = this.sidebarRef.current.offsetWidth
+    this.setState(state => { return { ...state, sidebarWidth} })
+    window.addEventListener('scroll', this.handleScroll);
+    window.addEventListener("mousemove", this.resize);
+    window.addEventListener("mouseup", this.stopResizing);
   }
 
   componentWillUnmount() {
-    this.socket.close()
+    window.removeEventListener("mousemove", this.resize);
+    window.removeEventListener("mouseup", this.stopResizing);
+  }
+
+  startResizing(mouseDownEvent) {
+    this.setState(state => { return { ...state, sidebarIsResizing: true} })
+  }
+
+  stopResizing(mouseDownEvent) {
+    this.setState(state => { return { ...state, sidebarIsResizing: false} })
+  }
+
+  resize(mouseMoveEvent) {
+    if (this.state.sidebarIsResizing) {
+      const sidebarWidth = mouseMoveEvent.clientX -
+        this.sidebarRef.current.getBoundingClientRect().left
+      this.setState(state => { return { ...state, sidebarWidth} })
+    }
   }
 
   clearContents() {
@@ -332,6 +360,10 @@ class App extends React.Component {
             else
               return state
           })
+          console.log(this.textContentRef)
+          if (this.textContentRef.current !== null) {
+            hljs.highlightElement(this.textContentRef.current)
+          }
         }
       })
       this.socket.emit("data request", {
@@ -365,9 +397,14 @@ class App extends React.Component {
 
   render() {
     return (
-      <div>
-        <div className="container">
-          <div className="sidebar">
+      <div className="app">
+        <div
+          ref={this.sidebarRef}
+          className="sidebar"
+          style={{width: this.state.sidebarWidth}}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <div className="sidebar-content">
             <h1> Contents </h1>
             <ContentTree
               selectedContentPath={this.state.selectedContentPath}
@@ -378,12 +415,14 @@ class App extends React.Component {
               emitDataRequest={this.emitDataRequest}
             />
           </div>
-          <div id="content" className="content">
-            <Content
-              shownContentPath={this.state.shownContentPath}
-              textContent={this.state.textContent}
-            />
-          </div>
+          <div className="sidebar-resizer" onMouseDown={this.startResizing}></div>
+        </div>
+        <div className="content">
+          <Content
+            shownContentPath={this.state.shownContentPath}
+            textContent={this.state.textContent}
+            innerTextContentRef={this.textContentRef}
+          />
         </div>
       </div>
     )
