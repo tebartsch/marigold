@@ -24,23 +24,19 @@ docker run -it \
 
 ## Development
 
-Install requirements by using 
-  - Using python virtual environment:
+Install and run
+  - using python virtual environment:
     ```shell
     python -m venv venv
     source venv/bin/activate
     pip install .
+    marigold --directory example/marigold
     ```
-  - Using nix:
+  - using nix:
     ```shell
     nix-shell nix
     marigold --directory example/marigold
     ```
-
-Run the development server
-```shell
-python marigold/run.py --directory example/marigold
-```
 
 ## Docker container
 

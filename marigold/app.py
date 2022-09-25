@@ -85,14 +85,10 @@ def children(path):
                 else:
                     opened = show.startswith(elem_path)
                 node = {
-                    "text": name,
-                    "icon": icon_dict["folder"],
-                    "children": has_children(dir_elem_path),
+                    "title": name,
+                    "path": elem_path_norm,
                     "state": {"opened": opened},
-                    "data": {
-                        "is_directory": True,
-                        "path": elem_path_norm,
-                    }
+                    "isLeaf": False,
                 }
                 sub_directories.append(node)
             else:
@@ -103,29 +99,16 @@ def children(path):
                     icon = icon_dict["file"]
                 show_content = elem_path == show
                 node = {
-                    "text": name,
-                    "icon": icon,
-                    "data": {
-                        "is_directory": False,
-                        "path": elem_path_norm,
-                        "show_content": show_content,
-                    }
+                    "title": name,
+                    "path": elem_path_norm,
+                    "isLeaf": True,
+                    "showContent": show_content,
                 }
                 files.append(node)
 
     print(jsonify(sub_directories + files))
 
     return jsonify(sub_directories + files)
-
-
-@app.route('/', defaults={'path': '.'})
-@app.route('/<path:path>', strict_slashes=False)
-def dirtree(path):
-    return render_template(
-        'index.html',
-        webpage_title=app.config['webpage_title'],
-        sidebar_headline=app.config['sidebar_headline'],
-    )
 
 
 @app.route('/blob/<path:path>')
@@ -191,6 +174,7 @@ send_file_contents = None
 
 @socketio.on('connect')
 def connect():
+    print("connected")
     global send_file_contents
     send_file_contents = SendFileContents(socketio)
 
