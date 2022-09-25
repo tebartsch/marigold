@@ -5,50 +5,70 @@ import hljs from "highlight.js";
 import "highlight.js/styles/default.css"
 import io from 'socket.io-client';
 
-import folder_icon from './themes/default/folder.svg'
-import file_icon from './themes/default/file.svg'
-import file_text_icon from './themes/default/file-text.svg'
-import image_icon from './themes/default/image.svg'
-import video_icon from './themes/default/video.svg'
+import arrowDown from './themes/default/arrow-down-s-line.svg'
+import arrowRight from './themes/default/arrow-right-s-line.svg'
+import folderIcon from './themes/default/folder.svg'
+import fileIcon from './themes/default/file.svg'
+import fileTextIcon from './themes/default/file-text.svg'
+import imageIcon from './themes/default/image.svg'
+import videoIcon from './themes/default/video.svg'
 
 import './marigold.css';
 
 const axios = require('axios').default;
 
+
 const iconsPerExtension = {
-    "txt": file_text_icon,
-    "yml": file_text_icon,
-    "yaml": file_text_icon,
-    "jpg": image_icon,
-    "jpeg": image_icon,
-    "png": image_icon,
-    "mp4": video_icon,
+    "txt": fileTextIcon,
+    "yml": fileTextIcon,
+    "yaml": fileTextIcon,
+    "jpg": imageIcon,
+    "jpeg": imageIcon,
+    "png": imageIcon,
+    "mp4": videoIcon,
 };
 
-const getNode = async (path) =>
+const isTextFile = (path) => {
+  const textFileExtensions = ["txt", "yml", "yaml"]
+  const ext = path.split(".").pop()
+  return textFileExtensions.includes(ext)
+}
+
+
+const getNodeChildren = async (path) =>
   axios
     .get('/children' + path)
     .then((res) => {
-      return res.data.map(entry => {
+      return Promise.all(res.data.map(entry => {
         const ext = entry.path.split(".").pop()
         let icon
         if (!entry.isLeaf)
-            icon = folder_icon
+          icon = folderIcon
         else if (iconsPerExtension.hasOwnProperty(ext)) {
-            icon = iconsPerExtension[ext] }
-        else
-            icon = file_icon
-        return {
-          title: entry.title,
-          key: entry.path,
-          isLeaf: entry.isLeaf,
-          icon: <img
-            style={{ width: 15, padding: 1 }}
-            src={icon} alt="-"
-          />,
+          icon = iconsPerExtension[ext]
+        } else
+          icon = fileIcon
+        let children
+        if (window.location.pathname.startsWith(entry.path)) {
+          children = Promise.resolve(null) // getNodeChildren(entry.path)
+        } else {
+          children = Promise.resolve(null)
         }
-      })
+        return children.then((res) => {
+          return {
+            title: entry.title,
+            key: entry.path,
+            isLeaf: entry.isLeaf,
+            icon: <img
+              style={{width: 15, padding: 1}}
+              src={icon} alt="-"
+            />,
+            children: res,
+          }
+        })
+      }))
     })
+
 
 // https://stackoverflow.com/a/50590586/11172277
 const search = (tree, value, reverse = false) => {
@@ -61,24 +81,49 @@ const search = (tree, value, reverse = false) => {
   return null
 }
 
+const getExpandedKeys = (path) => {
+  const pathComponents = path.split("/").slice(1)
+  //   ['a', 'b', 'c'].reduce(...).slice(1) === [ '/a', '/a/b', '/a/b/c' ]
+  return pathComponents.reduce((acc, curr) => acc.concat([acc.at(-1) + '/' + curr]), ['']).slice(1)
+}
+
 class ContentTree extends React.Component {
-  state = {
-    treeData: [],
-  };
+
+  constructor(props) {
+    super(props)
+    this.state = {
+      treeData: [],
+      selectedKeys: [],
+      expandedKeys: [],
+    };
+  }
 
   componentDidMount() {
-    getNode("/")
+    getNodeChildren("/")
       .then((data) => {
-        this.setState({
-          treeData: data
-        })
+        const path = window.location.pathname
+        let selectedKeys
+        if (path.length > 1)
+          selectedKeys = [path]
+        else
+          selectedKeys = []
+        this.setState(state => { return {
+          ...state,
+          treeData: data,
+          selectedKeys: selectedKeys,
+          expandedKeys: getExpandedKeys(path),
+        }})
       })
+    const path = window.location.pathname
+    this.props.selectContent(path)
+    if (isTextFile(path))
+      this.props.emitDataRequest(path)
   }
 
   onLoadData = treeNode => {
     return new Promise(resolve => {
       const path = treeNode.key
-      getNode(path)
+      getNodeChildren(path)
         .then((data) => {
           const treeData = [...this.state.treeData];
 
@@ -93,41 +138,84 @@ class ContentTree extends React.Component {
           // Update the children of the leaf node selected
           leaf.children = data
 
-          this.setState({ treeData });
+          this.setState(state => { return {
+            ...state,
+            treeData: treeData,
+          }});
           resolve();
         })
     });
   };
 
-  onSelect = (info) => {
-    for (const key of info) {
+  onSelect = (selectedKeys) => {
+    this.setState(state => { return {
+      ...state,
+      selectedKeys: selectedKeys,
+    }})
+    for (const key of selectedKeys) {
+			window.history.replaceState(null, null, '//' + document.location.host + key);
       const node = search(this.state.treeData, key)
       if (node.isLeaf)
         this.props.selectContent(key)
-      this.props.emitDataRequest(key)
+      if (isTextFile(key)) {
+        this.props.clearContents()
+        this.props.emitDataRequest(key)
+      }
     }
   }
 
+  onExpand = (expandedKeys) => {
+    this.setState(state => { return {...state, expandedKeys} })
+  }
+
   onMouseEnter = event => {
-    if (event.node.isLeaf)
+    if (event.node.isLeaf) {
       this.props.hoverContent(event.node.key)
-    this.props.emitDataRequest(event.node.key)
+      if (isTextFile(event.node.key)) {
+        this.props.clearContents()
+        this.props.emitDataRequest(event.node.key)
+      }
+    }
   }
 
   onMouseLeave = event => {
-    if (event.node.isLeaf)
+    if (event.node.isLeaf) {
       this.props.dehoverContent()
+      this.props.clearContents()
+      if (this.props.selectedContentPath !== null)
+        this.props.emitDataRequest(this.props.selectedContentPath)
+    }
   }
 
   render() {
+    const switcherIcon = node => {
+      if (node.isLeaf) {
+        return null
+      }
+      if (node.expanded)
+         return <img
+           style={{width: 15, padding: 1, backgroundColor: 'white'}}
+           src={arrowDown} alt="v"
+         />
+      else
+         return <img
+           style={{width: 15, padding: 1, backgroundColor: 'white'}}
+           src={arrowRight} alt=">"
+         />
+    };
     return (
       <Tree
         onSelect={this.onSelect}
         loadData={this.onLoadData}
         treeData={this.state.treeData}
+        defaultLoadedKeys={getExpandedKeys(window.location.pathname)}
+        selectedKeys={this.state.selectedKeys}
+        expandedKeys={this.state.expandedKeys}
+        onExpand={this.onExpand}
         onMouseEnter={this.onMouseEnter}
         onMouseLeave={this.onMouseLeave}
         expandAction="click"
+        switcherIcon={switcherIcon}
       />
     );
   }
@@ -144,12 +232,13 @@ class Content extends React.Component {
   }
 
   componentDidUpdate(prevProps, prevState, snapshot) {
-    if (this.textContentRef.current !== null)
-       hljs.highlightElement(this.textContentRef.current)
+    if (this.textContentRef.current !== null) {
+      hljs.highlightElement(this.textContentRef.current)
+    }
   }
 
   render() {
-    const path = this.props.contentPath
+    const path = this.props.shownContentPath
     if (path) {
       let asset_path = "//" + document.location.host + "/blob" + path;
       let asset_path_decoded = decodeURIComponent(asset_path);
@@ -160,9 +249,9 @@ class Content extends React.Component {
          yaml: 'language-yaml',
       };
 
-      let file_type = path.split('.').pop();
-      if (file_type) {
-        if (file_type === "mp4") {
+      let fileType = path.split('.').pop();
+      if (fileType) {
+        if (fileType === "mp4") {
           return (
             <div>
               <p><a className='content-link' href={asset_path} id='content-link'>
@@ -173,12 +262,12 @@ class Content extends React.Component {
               </video>
             </div>
           )
-        } else if (highlight_js_dict.hasOwnProperty(file_type)) {
+        } else if (highlight_js_dict.hasOwnProperty(fileType)) {
           return (
             <div id='text-content' className="inherit-height text-content">
               <a href={asset_path} id='content-link'>source</a>
               <pre className='preformatted'>
-                <code className={highlight_js_dict[file_type]} ref={this.textContentRef}>
+                <code className={highlight_js_dict[fileType]} ref={this.textContentRef}>
                   {this.props.textContent}
                 </code>
               </pre>
@@ -202,59 +291,76 @@ class App extends React.Component {
     super(props);
     this.state = {
       selectedContentPath: null,
-      contentPath: null,
-      textContent: null
+      shownContentPath: null,
+      textContent: "",
+      textContentUuid: null,
     }
 
     this.socket = io()
     this.textDecoder = new TextDecoder();
 
     this.emitDataRequest = this.emitDataRequest.bind(this)
+    this.clearContents = this.clearContents.bind(this)
   }
 
   componentWillUnmount() {
     this.socket.close()
   }
 
+  clearContents() {
+    this.setState(state => { return { ...state, textContent: ""} })
+  }
+
   emitDataRequest(path) {
-    this.setState({
-      textContent: null
-    })
-    this.socket.on('data', (msg) => {
-      if (msg.path === this.state.contentPath) {
-        const text = this.textDecoder.decode(msg.bytes)
-        if (this.state.textContent === null)
-          this.setState({
-            textContent: text,
+    if (isTextFile(path)) {
+      const uuid = crypto.randomUUID()
+      this.setState(state => {
+        return {
+          ...state,
+          textContentUuid: uuid
+        }
+      })
+      this.socket.on('data', (msg) => {
+        if (msg.uuid === uuid) {
+          const text = this.textDecoder.decode(msg.bytes)
+          this.setState(state => {
+            if (state.textContentUuid === uuid)
+              return {
+                ...state,
+                textContent: this.state.textContent + text,
+              }
+            else
+              return state
           })
-        else
-          this.setState({
-            textContent: this.state.textContent + text
-          })
-      }
-    })
-    this.socket.emit("data request", {
-      path: path
-    })
+        }
+      })
+      this.socket.emit("data request", {
+        path: path,
+        uuid: uuid,
+      })
+    }
   }
 
   selectContent(path) {
-    this.setState({
+    this.setState(state => { return {
+      ...state,
       selectedContentPath: path,
-      contentPath: path,
-    })
+      shownContentPath: path,
+    }})
   }
 
   hoverContent(path) {
-    this.setState({
-      contentPath: path,
-    })
+    this.setState(state => { return {
+      ...state,
+      shownContentPath: path,
+    }})
   }
 
   dehoverContent() {
-    this.setState({
-      contentPath: this.state.selectedContentPath,
-    })
+    this.setState(state => { return {
+      ...state,
+      shownContentPath: this.state.selectedContentPath,
+    }})
   }
 
   render() {
@@ -264,15 +370,17 @@ class App extends React.Component {
           <div className="sidebar">
             <h1> Contents </h1>
             <ContentTree
+              selectedContentPath={this.state.selectedContentPath}
               selectContent={path => this.selectContent(path)}
               hoverContent={path => this.hoverContent(path)}
               dehoverContent={_ => this.dehoverContent()}
+              clearContents={this.clearContents}
               emitDataRequest={this.emitDataRequest}
             />
           </div>
           <div id="content" className="content">
             <Content
-              contentPath={this.state.contentPath}
+              shownContentPath={this.state.shownContentPath}
               textContent={this.state.textContent}
             />
           </div>

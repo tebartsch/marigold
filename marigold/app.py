@@ -36,18 +36,6 @@ socketio = SocketIO(app, async_mode="gevent")
 for k, v in vars(args).items():
     app.config[k] = v
 
-icon_dict = {
-    "folder": "/static/themes/default/folder.svg",
-    "file": "/static/themes/default/file.svg",
-    "txt": "/static/themes/default/file.svg",
-    "yml": "/static/themes/default/file.svg",
-    "yaml": "/static/themes/default/file.svg",
-    "jpg": "/static/themes/default/image.svg",
-    "jpeg": "/static/themes/default/image.svg",
-    "png": "/static/themes/default/image.svg",
-    "mp4": "/static/themes/default/video.svg",
-}
-
 
 def has_children(path):
     if not os.path.isdir(path):
@@ -64,8 +52,6 @@ def has_children(path):
 @app.route('/children/', defaults={'path': '.'})
 @app.route('/children/<path:path>')
 def children(path):
-    show = request.args.get('show', default=".", type=str)
-
     directory = app.config.get('directory')
     sub_directories = []
     files = []
@@ -80,29 +66,17 @@ def children(path):
             elem_path = "/" + os.path.normpath(os.path.join(path, name))
             elem_path_norm = urllib.parse.quote_plus(elem_path, safe="/")
             if os.path.isdir(dir_elem_path):
-                if show is None:
-                    opened = False
-                else:
-                    opened = show.startswith(elem_path)
                 node = {
                     "title": name,
                     "path": elem_path_norm,
-                    "state": {"opened": opened},
                     "isLeaf": False,
                 }
                 sub_directories.append(node)
             else:
-                ext = os.path.splitext(elem_path)[1][1:]
-                if ext in icon_dict:
-                    icon = icon_dict[ext]
-                else:
-                    icon = icon_dict["file"]
-                show_content = elem_path == show
                 node = {
                     "title": name,
                     "path": elem_path_norm,
                     "isLeaf": True,
-                    "showContent": show_content,
                 }
                 files.append(node)
 
@@ -119,17 +93,19 @@ def send_file(path):
 
 
 class SendFileContents:
-    # {
-    #   "path/to/file": ["id1", "id2"],
-    #   ---
-    # }
-    sending = {}
+    # [
+    #   "655e480a-32be-4cae-8e70-c05dd71fb8f0",
+    #   "2952c431-bffe-4761-87b2-e2efbad274ee",
+    #   "7913eeb8-2ba8-4c0a-87ee-f1935dfb8604",
+    #   ...
+    # ]
+    sending = []
 
     def __init__(self, socketio):
         self.socketio = socketio
 
     def do_work(self, path, identifier):
-        self.sending[path] = [identifier]
+        self.sending.append(identifier)
         while True:
             max_ws_message_bytes = 524288
             logging.info(f"WEBSOCKET: received data request for path '{path}'.")
@@ -158,14 +134,11 @@ class SendFileContents:
                 socketio.emit("data", {
                     "path": path,
                     "bytes": bytes(_data, 'utf-8'),
+                    "uuid": identifier,
                 }, namespace="/")
 
             for data in follow(open(full_path, 'r')):
-                if identifier not in self.sending[path]:
-                    if not self.sending[path]:
-                        del self.sending[path]
-                    return
-                if data:
+                if (identifier in self.sending) and data:
                     _emit(data)
 
 
@@ -181,13 +154,13 @@ def connect():
 
 @socketio.on('data request')
 def send_file_via_websockets(message):
-    for k in SendFileContents.sending:
-        SendFileContents.sending[k] = []
+    SendFileContents.sending = []
     path = message['path']
+    uuid = message['uuid']
     if send_file_contents is not None:
         milliseconds = int(round(time.time() * 1000))
         socketio.start_background_task(target=send_file_contents.do_work,
-                                       path=path, identifier=str(milliseconds))
+                                       path=path, identifier=uuid)
 
 
 def main():
