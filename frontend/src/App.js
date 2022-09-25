@@ -1,11 +1,11 @@
 import React from 'react';
 import Tree from 'rc-tree';
 import "rc-tree/assets/index.css"
-import hljs from "highlight.js";
+import highlight from "highlight.js";
 import "highlight.js/styles/default.css"
 import io from 'socket.io-client';
 
-import './marigold.css';
+import './App.css';
 import arrowDown from './themes/default/arrow-down-s-line.svg'
 import arrowRight from './themes/default/arrow-right-s-line.svg'
 import folderIcon from './themes/default/folder.svg'
@@ -28,9 +28,13 @@ const iconsPerExtension = {
 };
 
 const isTextFile = (path) => {
-  const textFileExtensions = ["txt", "yml", "yaml"]
-  const ext = path.split(".").pop()
-  return textFileExtensions.includes(ext)
+  if (path !== null) {
+    const textFileExtensions = ["txt", "yml", "yaml"]
+    const ext = path.split(".").pop()
+    return textFileExtensions.includes(ext)
+  } else {
+    return false
+  }
 }
 
 
@@ -38,7 +42,7 @@ const getNodeChildren = async (path) =>
   axios
     .get('/children' + path)
     .then((res) => {
-      return Promise.all(res.data.map(entry => {
+      return res.data.map(entry => {
         const ext = entry.path.split(".").pop()
         let icon
         if (!entry.isLeaf)
@@ -47,25 +51,16 @@ const getNodeChildren = async (path) =>
           icon = iconsPerExtension[ext]
         } else
           icon = fileIcon
-        let children
-        if (window.location.pathname.startsWith(entry.path)) {
-          children = Promise.resolve(null) // getNodeChildren(entry.path)
-        } else {
-          children = Promise.resolve(null)
+        return {
+          title: entry.title,
+          key: entry.path,
+          isLeaf: entry.isLeaf,
+          icon: <img
+            style={{width: 15, padding: 1}}
+            src={icon} alt="-"
+          />,
         }
-        return children.then((res) => {
-          return {
-            title: entry.title,
-            key: entry.path,
-            isLeaf: entry.isLeaf,
-            icon: <img
-              style={{width: 15, padding: 1}}
-              src={icon} alt="-"
-            />,
-            children: res,
-          }
-        })
-      }))
+      })
     })
 
 
@@ -115,8 +110,6 @@ class ContentTree extends React.Component {
       })
     const path = window.location.pathname
     this.props.selectContent(path)
-    if (isTextFile(path))
-      this.props.emitDataRequest(path)
   }
 
   onLoadData = treeNode => {
@@ -147,18 +140,21 @@ class ContentTree extends React.Component {
   };
 
   onSelect = (selectedKeys) => {
-    this.setState(state => { return {
-      ...state,
-      selectedKeys: selectedKeys,
-    }})
-    for (const key of selectedKeys) {
-			window.history.replaceState(null, null, '//' + document.location.host + key);
-      const node = search(this.state.treeData, key)
-      if (node.isLeaf)
-        this.props.selectContent(key)
-      if (isTextFile(key)) {
-        this.props.clearContents()
-        this.props.emitDataRequest(key)
+    this.setState(state => {
+      return {
+        ...state,
+        selectedKeys: selectedKeys,
+      }
+    })
+    if (!selectedKeys.length)
+      this.props.selectContent(null)
+    else {
+      for (const key of selectedKeys) {
+        window.history.replaceState(null, null, '//' + document.location.host + key);
+        const node = search(this.state.treeData, key)
+        if (node.isLeaf) {
+          this.props.selectContent(key)
+        }
       }
     }
   }
@@ -170,19 +166,12 @@ class ContentTree extends React.Component {
   onMouseEnter = event => {
     if (event.node.isLeaf) {
       this.props.hoverContent(event.node.key)
-      if (isTextFile(event.node.key)) {
-        this.props.clearContents()
-        this.props.emitDataRequest(event.node.key)
-      }
     }
   }
 
   onMouseLeave = event => {
     if (event.node.isLeaf) {
       this.props.dehoverContent()
-      this.props.clearContents()
-      if (this.props.selectedContentPath !== null)
-        this.props.emitDataRequest(this.props.selectedContentPath)
     }
   }
 
@@ -220,62 +209,71 @@ class ContentTree extends React.Component {
   }
 }
 
-class Content extends React.Component {
+const Content = (props) => {
+  const [scrollHeight, setScrollHeight] = React.useState(0)
 
-  constructor(props) {
-    super(props);
-    this.state = {
-      textContent: null
+  const textContainerRef = React.useCallback((node) => {
+    if (node !== null) {
+      console.log(node.scrollTop, node.offsetHeight, scrollHeight, node.scrollTop + node.offsetHeight + 5 >= scrollHeight)
+      if (node.scrollTop + node.offsetHeight + 5 >= scrollHeight)
+        node.scrollTop = node.scrollHeight
+      setScrollHeight(node.scrollHeight)
+    }
+  })
+
+  const path = props.shownContentPath
+  if (path) {
+    let asset_path = "//" + document.location.host + "/blob" + path;
+    let asset_path_decoded = decodeURIComponent(asset_path);
+
+    let highlight_js_dict = {
+       txt: 'language-plaintext',
+       yml: 'language-yaml',
+       yaml: 'language-yaml',
     };
-  }
 
-  render() {
-    const path = this.props.shownContentPath
-    if (path) {
-      let asset_path = "//" + document.location.host + "/blob" + path;
-      let asset_path_decoded = decodeURIComponent(asset_path);
-
-      let highlight_js_dict = {
-         txt: 'language-plaintext',
-         yml: 'language-yaml',
-         yaml: 'language-yaml',
-      };
-
-      let fileType = path.split('.').pop();
-      if (fileType) {
-        if (fileType === "mp4") {
-          return (
-            <div>
-              <p><a className='content-link' href={asset_path} id='content-link'>
-                {asset_path_decoded}
-              </a></p>
-              <video className='inherit-height' controls>
-                <source src={asset_path} type='video/mp4'/>
-              </video>
-            </div>
-          )
-        } else if (highlight_js_dict.hasOwnProperty(fileType)) {
-          return (
-            <div className="text-content">
-              <a href={asset_path} id='content-link'>source</a>
-              <pre className='preformatted'>
-                <code className={highlight_js_dict[fileType]} ref={this.props.innerTextContentRef}>
-                  {this.props.textContent}
-                </code>
-              </pre>
-            </div>
-          );
-        } else {
-          return (
-            <div className="image-container">
-              <a href={asset_path}>
-                <img className='image' src={asset_path} alt={asset_path_decoded}/>
-              </a>
-            </div>
-          );
-        }
+    let fileType = path.split('.').pop();
+    if (fileType) {
+      if (fileType === "mp4") {
+        return (
+          <div>
+            <p><a className='content-link' href={asset_path} id='content-link'>
+              {asset_path_decoded}
+            </a></p>
+            <video className='inherit-height' controls>
+              <source src={asset_path} type='video/mp4'/>
+            </video>
+          </div>
+        )
+      } else if (highlight_js_dict.hasOwnProperty(fileType)) {
+        return (
+          <div className="text-content">
+            <a href={asset_path} id='content-link'>source</a>
+            <pre className='preformatted' ref={textContainerRef}>
+              <code
+                className={highlight_js_dict[fileType]}
+                ref={block => {
+                  if ((block !== null))
+                    highlight.highlightElement(block)
+                }}
+              >
+                {props.textContent}
+              </code>
+            </pre>
+          </div>
+        );
+      } else {
+        return (
+          <div className="image-container">
+            <a href={asset_path}>
+              <img className='image' src={asset_path} alt={asset_path_decoded}/>
+            </a>
+          </div>
+        );
       }
     }
+  } else {
+    return null
   }
 }
 
@@ -287,21 +285,22 @@ class App extends React.Component {
       selectedContentPath: null,
       shownContentPath: null,
       textContent: "",
-      textContentUuid: null,
       sidebarIsResizing: false,
       sidebarWidth: null
     }
+    this.textContentUuid = null
 
     this.textDecoder = new TextDecoder();
 
-    this.emitDataRequest = this.emitDataRequest.bind(this)
-    this.clearContents = this.clearContents.bind(this)
     this.startResizing = this.startResizing.bind(this)
     this.stopResizing = this.stopResizing.bind(this)
     this.resize = this.resize.bind(this)
+    this.emitDataRequest = this.emitDataRequest.bind(this)
+    this.selectContent = this.selectContent.bind(this)
+    this.hoverContent = this.hoverContent.bind(this)
+    this.dehoverContent = this.dehoverContent.bind(this)
 
     this.sidebarRef = React.createRef();
-    this.textContentRef = React.createRef();
 
     this.socket = io()
   }
@@ -335,64 +334,59 @@ class App extends React.Component {
     }
   }
 
-  clearContents() {
-    this.setState(state => { return { ...state, textContent: ""} })
-  }
-
   emitDataRequest(path) {
-    if (isTextFile(path)) {
-      const uuid = crypto.randomUUID()
-      this.setState(state => {
-        return {
-          ...state,
-          textContentUuid: uuid
-        }
-      })
-      this.socket.on('data', (msg) => {
-        if (msg.uuid === uuid) {
-          const text = this.textDecoder.decode(msg.bytes)
+    const uuid = crypto.randomUUID()
+    this.textContentUuid = uuid
+    this.socket.on('data', (msg) => {
+      if (msg.uuid === uuid) {
+        const text = this.textDecoder.decode(msg.bytes)
+        if (this.textContentUuid === uuid)
           this.setState(state => {
-            if (state.textContentUuid === uuid)
-              return {
-                ...state,
-                textContent: this.state.textContent + text,
-              }
-            else
-              return state
+            return {
+              ...state,
+              textContent: this.state.textContent + text,
+            }
           })
-          console.log(this.textContentRef)
-          if (this.textContentRef.current !== null) {
-            hljs.highlightElement(this.textContentRef.current)
-          }
-        }
-      })
-      this.socket.emit("data request", {
+      }
+    })
+    this.socket.emit("data request", {
         path: path,
         uuid: uuid,
       })
-    }
   }
 
   selectContent(path) {
     this.setState(state => { return {
       ...state,
       selectedContentPath: path,
-      shownContentPath: path,
+      shownContentPath: state.shownContentPath || path,
+      textContent: path ? '' : state.textContent,
     }})
+    if (isTextFile(path)) {
+      this.emitDataRequest(path)
+    }
   }
 
   hoverContent(path) {
     this.setState(state => { return {
       ...state,
       shownContentPath: path,
+      textContent: '',
     }})
+    if (isTextFile(path)) {
+      this.emitDataRequest(path)
+    }
   }
 
   dehoverContent() {
     this.setState(state => { return {
       ...state,
       shownContentPath: this.state.selectedContentPath,
+      textContent: '',
     }})
+    if (isTextFile(this.state.selectedContentPath)) {
+      this.emitDataRequest(this.state.selectedContentPath)
+    }
   }
 
   render() {
@@ -410,9 +404,7 @@ class App extends React.Component {
               selectedContentPath={this.state.selectedContentPath}
               selectContent={path => this.selectContent(path)}
               hoverContent={path => this.hoverContent(path)}
-              dehoverContent={_ => this.dehoverContent()}
-              clearContents={this.clearContents}
-              emitDataRequest={this.emitDataRequest}
+              dehoverContent={this.dehoverContent}
             />
           </div>
           <div className="sidebar-resizer" onMouseDown={this.startResizing}></div>
@@ -421,7 +413,6 @@ class App extends React.Component {
           <Content
             shownContentPath={this.state.shownContentPath}
             textContent={this.state.textContent}
-            innerTextContentRef={this.textContentRef}
           />
         </div>
       </div>

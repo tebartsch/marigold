@@ -60,7 +60,9 @@
 }
 
 .text-content {
-  margin: 10px 10px 10px 10px;
+  height: calc(100% - 20px);
+  width: calc(100% - 20px);
+  margin: 10px;
 }
 
 .preformatted {
