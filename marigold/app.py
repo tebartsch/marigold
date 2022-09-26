@@ -6,13 +6,11 @@ import sys
 import argparse
 import urllib.parse
 import time
-
-from flask import Flask, render_template, send_from_directory, request, jsonify
+from gevent import monkey
+monkey.patch_all()
+from flask import Flask, send_from_directory, jsonify, render_template
 from flask_socketio import SocketIO
 from werkzeug.security import safe_join
-from gevent import monkey
-
-monkey.patch_all()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8080,
@@ -29,7 +27,7 @@ parser.add_argument('--sidebar-headline', type=str, default="Marigold",
                     help='the headline shown above the contents sidebar')
 args = parser.parse_args()
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates", static_folder="static")
 socketio = SocketIO(app, async_mode="gevent")
 
 # Store command line options in app config
@@ -83,6 +81,15 @@ def children(path):
     print(jsonify(sub_directories + files))
 
     return jsonify(sub_directories + files)
+
+
+@app.route('/', defaults={'path': '.'})
+@app.route('/<path:path>', strict_slashes=False)
+def dirtree(path):
+    return render_template(
+        'index.html',
+        webpage_title=app.config['webpage_title'],
+    )
 
 
 @app.route('/blob/<path:path>')

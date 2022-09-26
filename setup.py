@@ -1,11 +1,19 @@
-from os import path
-from setuptools import setup, find_packages, find_namespace_packages
+from shutil import rmtree, copytree, copy
+from os import path, mkdir
+from setuptools import setup
 from codecs import open
+
 
 with open(
         path.join(path.abspath(path.dirname(__file__)), "README.md"), encoding="utf-8"
 ) as f:
     long_description = f.read()
+
+rmtree("marigold/templates", ignore_errors=True)
+mkdir("marigold/templates")
+copy("frontend/build/index.html", "marigold/templates/index.html")
+rmtree("marigold/static", ignore_errors=True)
+copytree("frontend/build/static", "marigold/static")
 
 setup(
     name="marigold",
@@ -25,6 +33,8 @@ setup(
     ],
     keywords="simulation productivity hierarchy",
     packages=["marigold"],
+    include_dirs=["frontend"],
+    package_data={'marigold': ["frontend/*"]},
     include_package_data=True,
     entry_points={
         'console_scripts': [

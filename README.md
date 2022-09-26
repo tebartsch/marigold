@@ -25,8 +25,9 @@ docker run -it \
 ## Development
 
 Install and run
-  - using python virtual environment:
+  - using yarn and python virtual environment:
     ```shell
+    (cd frontend; yarn build) 
     python -m venv venv
     source venv/bin/activate
     pip install .
@@ -37,10 +38,20 @@ Install and run
     nix-shell nix
     marigold --directory example/marigold
     ```
+    
+## Nix Packaging Notes
 
-## Docker container
+### Create `yarn.nix`-file
+```shell
+cd frontend
+nix-shell -p yarn yarn2nix
+yarn2nix > yarn.nix
+```
 
-Build and run docker image from repository
+
+### Docker container
+
+Build and run docker image using nix dockerTools.
 ```shell
 docker load < $(nix-build nix/docker.nix) || exit
 docker run -it \

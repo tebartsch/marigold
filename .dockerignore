@@ -1,8 +1,0 @@
-.github
-marigold.egg-info
-venv
-nix
-.dockerignore
-.gitignore
-CHANGELOG.md
-result
