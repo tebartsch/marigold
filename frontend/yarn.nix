@@ -9050,6 +9050,14 @@
       };
     }
     {
+      name = "uuid___uuid_9.0.0.tgz";
+      path = fetchurl {
+        name = "uuid___uuid_9.0.0.tgz";
+        url  = "https://registry.yarnpkg.com/uuid/-/uuid-9.0.0.tgz";
+        sha512 = "MXcSTerfPa4uqyzStbRoTgt5XIe3x5+42+q1sDuy3R5MDk66URdLMOZe5aPX/SQd+kuYAh0FdP/pO28IkQyTeg==";
+      };
+    }
+    {
       name = "v8_to_istanbul___v8_to_istanbul_8.1.1.tgz";
       path = fetchurl {
         name = "v8_to_istanbul___v8_to_istanbul_8.1.1.tgz";

@@ -4,6 +4,7 @@ import "rc-tree/assets/index.css"
 import highlight from "highlight.js";
 import "highlight.js/styles/default.css"
 import io from 'socket.io-client';
+import { v4 as uuidv4 } from 'uuid';
 
 import './App.css';
 import arrowDown from './themes/default/arrow-down-s-line.svg'
@@ -335,7 +336,7 @@ class App extends React.Component {
   }
 
   emitDataRequest(path) {
-    const uuid = crypto.randomUUID()
+    const uuid = uuidv4()
     this.textContentUuid = uuid
     this.socket.on('data', (msg) => {
       if (msg.uuid === uuid) {
