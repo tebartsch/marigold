@@ -213,14 +213,20 @@ class ContentTree extends React.Component {
 const Content = (props) => {
   const [scrollHeight, setScrollHeight] = React.useState(0)
 
-  const textContainerRef = React.useCallback((node) => {
+  const preElementRef = React.useCallback((node) => {
     if (node !== null) {
       console.log(node.scrollTop, node.offsetHeight, scrollHeight, node.scrollTop + node.offsetHeight + 5 >= scrollHeight)
       if (node.scrollTop + node.offsetHeight + 5 >= scrollHeight)
         node.scrollTop = node.scrollHeight
       setScrollHeight(node.scrollHeight)
     }
-  })
+  }, [props.textContent])
+
+  const codeElementRef = React.useCallback((node) => {
+    if (node !== null) {
+      highlight.highlightElement(node)
+    }
+  }, [props.textContent])
 
   const path = props.shownContentPath
   if (path) {
@@ -250,13 +256,11 @@ const Content = (props) => {
         return (
           <div className="text-content">
             <a href={asset_path} id='content-link'>source</a>
-            <pre className='preformatted' ref={textContainerRef}>
+            <pre className='preformatted' ref={preElementRef}>
               <code
                 className={highlight_js_dict[fileType]}
-                ref={block => {
-                  if ((block !== null))
-                    highlight.highlightElement(block)
-                }}
+                style={{minWidth: "fit-content"}}
+                ref={codeElementRef}
               >
                 {props.textContent}
               </code>
