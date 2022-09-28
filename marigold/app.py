@@ -49,8 +49,8 @@ def has_children(path):
             return len(lst) > 0
 
 
-@app.route('/children/', defaults={'path': '.'})
-@app.route('/children/<path:path>')
+@app.route('/api/children/', defaults={'path': '.'})
+@app.route('/api/children/<path:path>')
 def children(path):
     directory = app.config.get('directory')
     sub_directories = []
@@ -85,9 +85,9 @@ def children(path):
     return jsonify(sub_directories + files)
 
 
-@app.route('/')
-def dirtree():
-    print(app.config['only_backend'])
+@app.route('/', defaults={'path': '.'})
+@app.route('/<path:path>', strict_slashes=False)
+def dirtree(path):
     if app.config['only_backend']:
         return "Frontend is not being served since `--only-backend` flag has been set."
     else:
@@ -97,7 +97,7 @@ def dirtree():
         )
 
 
-@app.route('/blob/<path:path>')
+@app.route('/api/blob/<path:path>')
 def send_file(path):
     directory = app.config.get('directory')
     base_path = os.path.join(os.path.realpath(os.path.curdir), directory)

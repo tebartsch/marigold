@@ -26,7 +26,9 @@ const iconsPerExtension = {
     "jpeg": imageIcon,
     "png": imageIcon,
     "mp4": videoIcon,
+    "svg": imageIcon,
 };
+
 
 const isTextFile = (path) => {
   if (path !== null) {
@@ -41,7 +43,7 @@ const isTextFile = (path) => {
 
 const getNodeChildren = async (path) =>
   axios
-    .get('/children' + path)
+    .get('/api/children' + path)
     .then((res) => {
        const rcTreeData = res.data.map(entry => {
         const ext = entry.path.split(".").pop()
@@ -253,7 +255,7 @@ const Content = (props) => {
 
   const path = props.shownContentPath
   if (path) {
-    let asset_path = "//" + document.location.host + "/blob" + path;
+    let asset_path = "/api/blob" + path;
     let asset_path_decoded = decodeURIComponent(asset_path);
 
     let highlight_js_dict = {
@@ -277,8 +279,8 @@ const Content = (props) => {
         )
       } else if (highlight_js_dict.hasOwnProperty(fileType)) {
         return (
-          <div className="text-content">
-            <a href={asset_path} id='content-link'>source</a>
+          <div className="column-flex">
+            <a href={asset_path}>source</a>
             <pre className='preformatted' ref={preElementRef}>
               <code
                 className={highlight_js_dict[fileType]}
@@ -288,6 +290,17 @@ const Content = (props) => {
                 {props.textContent}
               </code>
             </pre>
+          </div>
+        );
+      } else if (fileType === "svg") {
+        return (
+          <div className="column-flex">
+            <a href={asset_path}>source</a>
+            <iframe
+              title={asset_path_decoded} className='image' src={asset_path}
+              style={{ marginTop: "10px", marginBottom: "10px", border: 0,
+                       width: "100%", height: "100%"}}
+            />
           </div>
         );
       } else {
