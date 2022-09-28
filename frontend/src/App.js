@@ -235,13 +235,21 @@ const Content = (props) => {
         node.scrollTop = node.scrollHeight
       setScrollHeight(node.scrollHeight)
     }
-  }, [props.textContent])
+  },
+    /* We want to highlight the text in the code element every time the text content is changed*/
+    /* eslint-disable-next-line */
+    [props.textContent]
+  )
 
   const codeElementRef = React.useCallback((node) => {
     if (node !== null) {
       highlight.highlightElement(node)
     }
-  }, [props.textContent])
+  },
+    /* We want to highlight the text in the code element every time the text content is changed*/
+    /* eslint-disable-next-line */
+    [props.textContent]
+  )
 
   const path = props.shownContentPath
   if (path) {
