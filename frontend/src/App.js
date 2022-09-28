@@ -43,7 +43,7 @@ const getNodeChildren = async (path) =>
   axios
     .get('/children' + path)
     .then((res) => {
-      return res.data.map(entry => {
+       const rcTreeData = res.data.map(entry => {
         const ext = entry.path.split(".").pop()
         let icon
         if (!entry.isLeaf)
@@ -62,6 +62,15 @@ const getNodeChildren = async (path) =>
           />,
         }
       })
+
+      // Sort by name descending
+      rcTreeData.sort((entry1, entry2) => {
+        if (entry1.title > entry2.title) return -1
+        if (entry1.title < entry2.title) return 1
+        return 0;
+      })
+
+      return rcTreeData
     })
 
 
