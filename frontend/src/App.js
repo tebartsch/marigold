@@ -65,9 +65,15 @@ const getNodeChildren = async (path) =>
 
       // Sort by name descending
       rcTreeData.sort((entry1, entry2) => {
-        if (entry1.title > entry2.title) return -1
-        if (entry1.title < entry2.title) return 1
-        return 0;
+        if (!entry1.isLeaf && entry2.isLeaf)
+          return -1
+        else if (entry1.isLeaf && !entry2.isLeaf)
+          return 1
+        else {
+          if (entry1.title > entry2.title) return -1
+          if (entry1.title < entry2.title) return 1
+          return 0;
+        }
       })
 
       return rcTreeData
