@@ -12,39 +12,65 @@ Marigold is a tiny server used to examine and compare the contents of hierarchic
 
 ## Installation
 
-Pull docker image from [hub.docker.com](hub.docker.com) and run it for the files located in
-the folder `content`.
-```shell
-docker pull tbartsch/marigold
-docker run -it \
-    -p 8080:8080 \
-    --mount type=bind,source="$(pwd)"/content,target=/marigold/content \
-    tbartsch/marigold:latest
-```
+- using docker image:
+  Pull docker image from [hub.docker.com](hub.docker.com) and run it for the files located in
+  the folder `content`.
+  ```shell
+  docker pull tbartsch/marigold
+  docker run -it \
+      -p 8080:8080 \
+      --mount type=bind,source="$(pwd)"/content,target=/marigold/content \
+      tbartsch/marigold:latest
+  ```
+- using python venv:
+  ```shell
+  (cd frontend; yarn build) 
+  python -m venv venv
+  source venv/bin/activate
+  pip install .
+  marigold --directory example/marigold
+  ```
+- using nix:
+  ```shell
+  nix-build nix
+  result/bin/marigold --directory example/marigold
+  ```
 
 ## Development
 
-Install requirements by using 
-  - Using python virtual environment:
-    ```shell
-    python -m venv venv
-    source venv/bin/activate
-    pip install .
-    ```
-  - Using nix:
-    ```shell
-    nix-shell nix
-    marigold --directory example/marigold
-    ```
+- using python venv:
+  ```shell
+  # Install
+  python -m venv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+  (cd frontend; yarn install)
+  # Run
+  python marigold/app.py --directory example/marigold --only-backend & \
+    (cd frontend; yarn start)
+  ```
+- using nix:
+  ```shell
+  # Install
+  nix-shell nix/shell.nix
+  # Run
+  python marigold/app.py --directory example/marigold --only-backend & \
+    (cd frontend; yarn start)
+  ```
+    
+## Nix Packaging Notes
 
-Run the development server
+### Create `yarn.nix`-file
 ```shell
-python marigold/run.py --directory example/marigold
+cd frontend
+nix-shell -p yarn yarn2nix
+yarn2nix > yarn.nix
 ```
 
-## Docker container
 
-Build and run docker image from repository
+### Docker container
+
+Build and run docker image using nix dockerTools.
 ```shell
 docker load < $(nix-build nix/docker.nix) || exit
 docker run -it \

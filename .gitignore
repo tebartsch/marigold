@@ -1,3 +1,8 @@
+.idea
 venv
 build
-.idea
+node_modules
+marigold.egg-info
+marigold/static
+marigold/templates
+result
