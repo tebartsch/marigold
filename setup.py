@@ -9,11 +9,15 @@ with open(
 ) as f:
     long_description = f.read()
 
+# Copy frontend contents into package marigold
 rmtree("marigold/templates", ignore_errors=True)
 mkdir("marigold/templates")
 copy("frontend/build/index.html", "marigold/templates/index.html")
 rmtree("marigold/static", ignore_errors=True)
 copytree("frontend/build/static", "marigold/static")
+
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
 
 setup(
     name="marigold",
@@ -42,9 +46,5 @@ setup(
         ]
     },
     python_requires="~=3.9",
-    install_requires=[
-        "flask~=2.1.2",
-        "flask-socketio~=5.1.1",
-        "gevent-websocket~=0.10.1",
-    ],
+    install_requires=required,
 )

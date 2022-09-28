@@ -1,8 +1,13 @@
-{ pkgs ? import ./pkgs.nix }:
+{ pkgs ? import ./pkgs.nix}:
 
 pkgs.mkYarnPackage rec {
   src = [
-    (pkgs.nix-gitignore.gitignoreSourcePure [ "node_modules" ] ../frontend)
+    (pkgs.nix-gitignore.gitignoreSourcePure
+        [''
+          build
+          node_modules
+        '']
+        ../frontend)
   ];
   packageJSON = ../frontend/package.json;
   yarnLock = ../frontend/yarn.lock;

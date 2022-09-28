@@ -25,6 +25,8 @@ parser.add_argument('--webpage-title', type=str, default="Marigold",
 parser.add_argument('--sidebar-headline', type=str, default="Marigold",
                     metavar='example-headline',
                     help='the headline shown above the contents sidebar')
+parser.add_argument('--only-backend', action='store_true',
+                    help="Don't serve the frontend located in folders templates and static.")
 args = parser.parse_args()
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -83,13 +85,16 @@ def children(path):
     return jsonify(sub_directories + files)
 
 
-@app.route('/', defaults={'path': '.'})
-@app.route('/<path:path>', strict_slashes=False)
-def dirtree(path):
-    return render_template(
-        'index.html',
-        webpage_title=app.config['webpage_title'],
-    )
+@app.route('/')
+def dirtree():
+    print(app.config['only_backend'])
+    if app.config['only_backend']:
+        return "Frontend is not being served since `--only-backend` flag has been set."
+    else:
+        return render_template(
+            'index.html',
+            webpage_title=app.config['webpage_title'],
+        )
 
 
 @app.route('/blob/<path:path>')

@@ -14,13 +14,13 @@ let
     CHANGELOG.md
     result
     frontend/build
+    frontend/node_modules
   '';
 in
 with python3Packages;
 buildPythonPackage rec {
   pname = "marigold";
   version = "0.1.0";
-  buildInputs = [ pkgs.nodejs pkgs.yarn ];
   propagatedBuildInputs = [
     flask
     flask-socketio
@@ -28,7 +28,6 @@ buildPythonPackage rec {
   ];
   src = [
     (pkgs.nix-gitignore.gitignoreSourcePure [ ../.gitignore ignore-files] ../.)
-    marigold-frontend
   ];
   preBuild = ''
     mkdir -p frontend/build
