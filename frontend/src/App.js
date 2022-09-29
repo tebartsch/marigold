@@ -27,6 +27,7 @@ const iconsPerExtension = {
     "png": imageIcon,
     "mp4": videoIcon,
     "svg": imageIcon,
+    "html": imageIcon,
 };
 
 
@@ -291,7 +292,7 @@ const Content = (props) => {
             </pre>
           </div>
         );
-      } else if (fileType === "svg") {
+      } else if (fileType === "svg" || fileType === "html") {
         return (
           <div className="column-flex">
             <a href={asset_path}>source</a>
