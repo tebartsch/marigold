@@ -232,7 +232,6 @@ const Content = (props) => {
 
   const preElementRef = React.useCallback((node) => {
     if (node !== null) {
-      console.log(node.scrollTop, node.offsetHeight, scrollHeight, node.scrollTop + node.offsetHeight + 5 >= scrollHeight)
       if (node.scrollTop + node.offsetHeight + 5 >= scrollHeight)
         node.scrollTop = node.scrollHeight
       setScrollHeight(node.scrollHeight)
